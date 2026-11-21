@@ -1,0 +1,22 @@
+// Common weak passwords to reject during signup and password change
+export const COMMON_PASSWORDS = new Set([
+  '1234567890',
+  '123456789',
+  '12345678',
+  'password123',
+  'password12',
+  'password1',
+  'admin12345',
+  'welcome123',
+  'iloveyou123',
+  'sunshine123',
+  'princess123',
+  'football123',
+  'monkey1234',
+  'charlie123',
+  'michael123',
+  'jordan1234',
+  'superman12',
+  'caregiver1',
+  'familycare',
+]);

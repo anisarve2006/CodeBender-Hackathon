@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1795266311225,
+      "tag": "0000_minor_nuke",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795266347014,
+      "tag": "0001_extensions_and_roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795266353115,
+      "tag": "0002_rls_helpers_and_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795266358844,
+      "tag": "0003_audit_triggers",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795266365967,
+      "tag": "0004_sql_contracts",
+      "breakpoints": true
+    }
+  ]
+}

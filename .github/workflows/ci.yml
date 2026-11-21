@@ -1,0 +1,86 @@
+name: CI Quality Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: owner
+          POSTGRES_PASSWORD: ownerpassword
+          POSTGRES_DB: family_care_hub
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Lint check
+        run: npm run lint
+
+      - name: TypeScript check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Prepare Postgres app_user role and database
+        env:
+          PGPASSWORD: ownerpassword
+        run: |
+          psql -h localhost -U owner -d family_care_hub -c "CREATE ROLE app_user WITH LOGIN PASSWORD 'apppassword';"
+          psql -h localhost -U owner -d family_care_hub -c "GRANT ALL ON DATABASE family_care_hub TO owner;"
+
+      - name: Run Database Migrations & Seeds
+        env:
+          DATABASE_URL: "postgresql://app_user:apppassword@localhost:5432/family_care_hub"
+          DATABASE_URL_OWNER: "postgresql://owner:ownerpassword@localhost:5432/family_care_hub"
+          DATABASE_URL_UNPOOLED: "postgresql://owner:ownerpassword@localhost:5432/family_care_hub"
+          ALLOW_SEED: "true"
+        run: |
+          npm run db:migrate
+          npm run db:seed
+
+      - name: Run Database Tests (RLS & Contracts)
+        env:
+          DATABASE_URL: "postgresql://app_user:apppassword@localhost:5432/family_care_hub"
+          DATABASE_URL_OWNER: "postgresql://owner:ownerpassword@localhost:5432/family_care_hub"
+          DATABASE_URL_UNPOOLED: "postgresql://owner:ownerpassword@localhost:5432/family_care_hub"
+        run: npm run test:db
+
+      - name: Production Build
+        env:
+          DATABASE_URL: "postgresql://app_user:apppassword@localhost:5432/family_care_hub"
+          DATABASE_URL_OWNER: "postgresql://owner:ownerpassword@localhost:5432/family_care_hub"
+          DATABASE_URL_UNPOOLED: "postgresql://owner:ownerpassword@localhost:5432/family_care_hub"
+          NEXT_PUBLIC_SITE_URL: "http://localhost:3000"
+          NEXT_PUBLIC_DEMO_MODE: "true"
+        run: npm run build
+
+      - name: Security scan (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
