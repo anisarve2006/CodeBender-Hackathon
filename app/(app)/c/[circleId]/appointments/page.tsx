@@ -1,21 +1,45 @@
-'use client';
-
-import * as React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { Calendar } from 'lucide-react';
+import { AppointmentsView } from '@/components/features/appointments/appointments-view';
+import { requireCircleRole } from '@/lib/data/circle-context';
+import { listAppointments } from '@/lib/data/appointments';
+import { listCircleMembers } from '@/lib/data/members';
 
-export default function AppointmentsPage() {
+/**
+ * Doctor Appointments Page
+ * Owner: Member B
+ * Renders upcoming and past appointments with calendar export and coordination tasks.
+ */
+export default async function AppointmentsPage({
+  params,
+}: {
+  params: Promise<{ circleId: string }>;
+}) {
+  const { circleId } = await params;
+  const ctx = await requireCircleRole(circleId);
+
+  const [upcoming, past, rawMembers] = await Promise.all([
+    listAppointments(ctx, 'upcoming'),
+    listAppointments(ctx, 'past'),
+    listCircleMembers(circleId, ctx.userId),
+  ]);
+
+  const members = rawMembers.map((m) => ({
+    userId: m.userId,
+    fullName: m.fullName,
+  }));
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Doctor Appointments"
-        subtitle="Upcoming doctor visits, clinic locations, and appointment history"
+        subtitle="Upcoming doctor visits, clinic locations, reminders and consultation history"
       />
-      <EmptyState
-        title="Appointment Calendar"
-        description="Coming soon - Member B feature implementation"
-        icon={Calendar}
+      <AppointmentsView
+        circleId={circleId}
+        role={ctx.role}
+        upcoming={upcoming}
+        past={past}
+        members={members}
       />
     </div>
   );

@@ -38,10 +38,11 @@ export const reminders = pgTable(
     index('reminders_remind_at_pending_idx')
       .on(table.remindAt)
       .where(sql`sent_at IS NULL`),
-    uniqueIndex('reminders_kind_entity_user_time_idx').on(
+    uniqueIndex('reminders_kind_entity_user_channel_time_idx').on(
       table.kind,
       table.entityId,
       table.targetUserId,
+      table.channel,
       table.remindAt,
     ),
   ],
