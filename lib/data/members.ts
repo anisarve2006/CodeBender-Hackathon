@@ -22,3 +22,24 @@ export async function isCircleMemberUser(circleId: string, userId: string): Prom
     return mem.length > 0;
   });
 }
+
+/**
+ * Members of a circle with display names, for assignee pickers and task cards.
+ * The caller's userId is needed so the query runs under their RLS context.
+ */
+export async function listCircleMembers(circleId: string, userId: string) {
+  return withUserTx(userId, (tx) =>
+    tx
+      .select({
+        userId: schema.circleMembers.userId,
+        role: schema.circleMembers.role,
+        fullName: schema.users.fullName,
+        avatarUrl: schema.users.avatarUrl,
+      })
+      .from(schema.circleMembers)
+      .innerJoin(schema.users, eq(schema.circleMembers.userId, schema.users.id))
+      .where(eq(schema.circleMembers.circleId, circleId))
+      .orderBy(schema.users.fullName),
+  );
+}
+
