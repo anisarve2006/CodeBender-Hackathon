@@ -1,7 +1,8 @@
 import 'server-only';
-import { sql } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm';
 import { withUserTx } from '@/db/client';
-import type { InvitableRole } from '@/lib/schemas/invitations';
+import * as schema from '@/db/schema';
+import { INVITABLE_ROLES, type InvitableRole } from '@/lib/schemas/invitations';
 
 /**
  * lib/data/invitations.ts
@@ -63,4 +64,88 @@ export async function acceptInvitation(params: {
     }
     return circleId;
   });
+}
+
+export type PendingInvitation = {
+  id: string;
+  email: string;
+  role: InvitableRole;
+  expiresAt: Date;
+  createdAt: Date;
+};
+
+/** Invitations that are still open (not accepted, not expired), newest first. Owners and coordinators only (RLS). */
+export async function listPendingInvitations(
+  userId: string,
+  circleId: string,
+): Promise<PendingInvitation[]> {
+  const rows = await withUserTx(userId, (tx) =>
+    tx
+      .select({
+        id: schema.invitations.id,
+        email: schema.invitations.email,
+        role: schema.invitations.role,
+        expiresAt: schema.invitations.expiresAt,
+        createdAt: schema.invitations.createdAt,
+      })
+      .from(schema.invitations)
+      .where(
+        and(
+          eq(schema.invitations.circleId, circleId),
+          isNull(schema.invitations.acceptedAt),
+          gt(schema.invitations.expiresAt, new Date()),
+        ),
+      )
+      .orderBy(desc(schema.invitations.createdAt)),
+  );
+
+  return rows.filter((row): row is PendingInvitation =>
+    (INVITABLE_ROLES as readonly string[]).includes(row.role),
+  );
+}
+
+/** Reads one invitation (email and role) so it can be re-sent. */
+export async function getInvitationForResend(
+  userId: string,
+  circleId: string,
+  invitationId: string,
+): Promise<{ email: string; role: InvitableRole } | null> {
+  return withUserTx(userId, async (tx) => {
+    const [row] = await tx
+      .select({ email: schema.invitations.email, role: schema.invitations.role })
+      .from(schema.invitations)
+      .where(
+        and(
+          eq(schema.invitations.id, invitationId),
+          eq(schema.invitations.circleId, circleId),
+          isNull(schema.invitations.acceptedAt),
+        ),
+      )
+      .limit(1);
+    if (!row || !(INVITABLE_ROLES as readonly string[]).includes(row.role)) return null;
+    return { email: row.email, role: row.role as InvitableRole };
+  });
+}
+
+/** Deletes an open invitation so its link stops working. RLS limits this to owners and coordinators. */
+export async function revokeInvitation(
+  userId: string,
+  circleId: string,
+  invitationId: string,
+): Promise<void> {
+  const deleted = await withUserTx(userId, (tx) =>
+    tx
+      .delete(schema.invitations)
+      .where(
+        and(
+          eq(schema.invitations.id, invitationId),
+          eq(schema.invitations.circleId, circleId),
+          isNull(schema.invitations.acceptedAt),
+        ),
+      )
+      .returning({ id: schema.invitations.id }),
+  );
+  if (deleted.length === 0) {
+    throw new Error('That invitation could not be found.');
+  }
 }
