@@ -6,6 +6,7 @@ import { MAIN_NAV_ITEMS } from '@/lib/nav';
 import { QuickAddButton } from '@/components/shared/QuickAddButton';
 import { RoleBadge } from '@/components/shared/RoleBadge';
 import { LiveCircleListener } from './live-listener';
+import { PwaListener } from '@/components/features/pwa/pwa-listener';
 import { CircleNav } from './circle-nav';
 import { CircleUserMenu } from './circle-user-menu';
 
@@ -26,6 +27,7 @@ export default async function CircleLayout({
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/20">
+      <PwaListener />
       <LiveCircleListener circleId={circleId} />
 
       {/* Top Header */}

@@ -1,22 +1,29 @@
-'use client';
-
-import * as React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { Activity } from 'lucide-react';
+import { requireUser } from '@/lib/auth/session';
+import { requireCircleRole } from '@/lib/data/circle-context';
+import { TimelineFeed } from '@/components/features/timeline/timeline-feed';
 
-export default function TimelinePage() {
+export default async function TimelinePage({
+  params,
+}: {
+  params: Promise<{ circleId: string }>;
+}) {
+  const { circleId } = await params;
+  const [, viewer] = await Promise.all([requireCircleRole(circleId), requireUser()]);
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Care Timeline"
         subtitle="Chronological feed of appointments, prescriptions, reports, and updates"
       />
-      <EmptyState
-        title="Activity & Record Timeline"
-        description="Coming soon - Member B feature implementation"
-        icon={Activity}
-      />
+
+      <p className="text-sm text-muted-foreground">
+        Family Care Hub organises information only and does not provide medical advice. Always
+        consult a doctor.
+      </p>
+
+      <TimelineFeed circleId={circleId} timezone={viewer.timezone} />
     </div>
   );
 }

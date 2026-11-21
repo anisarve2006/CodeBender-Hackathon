@@ -44,6 +44,7 @@ const eslintConfig = defineConfig([
     'next-env.d.ts',
     'node_modules/**',
     'db/migrations/**',
+    'types/**',
   ]),
 ]);
 
