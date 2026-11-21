@@ -22,6 +22,21 @@ function escapeIcsText(text: string): string {
     .replace(/\n/g, '\\n');
 }
 
+/**
+ * Folds lines to at most 75 octets per RFC 5545 Section 3.1.
+ */
+function foldIcsLine(line: string): string {
+  if (line.length <= 75) return line;
+  const chunks: string[] = [];
+  let remaining = line;
+  while (remaining.length > 75) {
+    chunks.push(remaining.slice(0, 75));
+    remaining = ' ' + remaining.slice(75);
+  }
+  if (remaining.length > 0) chunks.push(remaining);
+  return chunks.join('\r\n');
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ appointmentId: string }> },
@@ -90,9 +105,12 @@ export async function GET(
       'STATUS:CONFIRMED',
       'END:VEVENT',
       'END:VCALENDAR',
-    ].filter(Boolean);
+    ];
 
-    const icsContent = icsLines.join('\r\n') + '\r\n';
+    const icsContent = icsLines
+      .filter((line): line is string => typeof line === 'string' && line.length > 0)
+      .map(foldIcsLine)
+      .join('\r\n') + '\r\n';
 
     return new NextResponse(icsContent, {
       status: 200,

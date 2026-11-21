@@ -189,11 +189,10 @@ export function QuickAddDocumentDialog({
               }}
               onDragLeave={() => setIsDragOver(false)}
               onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
-                isDragOver
-                  ? 'border-primary bg-primary/5'
-                  : 'border-muted-foreground/30 hover:border-muted-foreground/60'
-              }`}
+              className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${isDragOver
+                ? 'border-primary bg-primary/5'
+                : 'border-muted-foreground/30 hover:border-muted-foreground/60'
+                }`}
             >
               <div className="flex flex-col items-center justify-center space-y-3">
                 <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -363,11 +362,10 @@ export function QuickAddDocumentDialog({
               <button
                 type="button"
                 onClick={() => form.setValue('sensitivity', 'normal', { shouldDirty: true })}
-                className={`p-3 rounded-lg border text-left cursor-pointer transition-colors ${
-                  sensitivity === 'normal'
-                    ? 'border-primary bg-primary/10 font-medium'
-                    : 'border-border hover:bg-muted'
-                }`}
+                className={`p-3 rounded-lg border text-left cursor-pointer transition-colors ${sensitivity === 'normal'
+                  ? 'border-primary bg-primary/10 font-medium'
+                  : 'border-border hover:bg-muted'
+                  }`}
               >
                 <div className="font-semibold text-foreground">Normal</div>
                 <div className="text-[11px] text-muted-foreground mt-0.5">
@@ -378,11 +376,10 @@ export function QuickAddDocumentDialog({
               <button
                 type="button"
                 onClick={() => form.setValue('sensitivity', 'restricted', { shouldDirty: true })}
-                className={`p-3 rounded-lg border text-left cursor-pointer transition-colors ${
-                  sensitivity === 'restricted'
-                    ? 'border-amber-500 bg-amber-500/10 font-medium'
-                    : 'border-border hover:bg-muted'
-                }`}
+                className={`p-3 rounded-lg border text-left cursor-pointer transition-colors ${sensitivity === 'restricted'
+                  ? 'border-amber-500 bg-amber-500/10 font-medium'
+                  : 'border-border hover:bg-muted'
+                  }`}
               >
                 <div className="font-semibold text-amber-900 dark:text-amber-300">Restricted</div>
                 <div className="text-[11px] text-muted-foreground mt-0.5">

@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { createZipArchive, type ZipFileEntry } from '@/lib/utils/zip';
 import { list, del } from '@vercel/blob';
 import type { CircleContext } from '@/lib/types/app';
+import { bumpCircleVersion } from '@/lib/live/version';
 
 /**
  * Exports complete circle data as a streamed ZIP file:
@@ -152,8 +153,8 @@ export async function exportCircleDataZip(ctx: CircleContext): Promise<{ zipBuff
 
     // 8. Log export in activity_log
     await tx.execute(sql`
-      INSERT INTO activity_log (circle_id, actor_id, action, entity_type, entity_id, metadata, created_at)
-      VALUES (${ctx.circleId}, ${ctx.userId}, 'circle_exported', 'care_circles', ${ctx.circleId}, '{"format": "zip"}'::jsonb, now())
+      INSERT INTO activity_log (circle_id, actor_id, action, entity_type, entity_id, summary, diff, created_at)
+      VALUES (${ctx.circleId}, ${ctx.userId}, 'circle_exported', 'care_circles', ${ctx.circleId}, 'Exported complete circle data archive', '{"format": "zip"}'::jsonb, now())
     `);
 
     return {
@@ -241,8 +242,8 @@ export async function deleteCircleAndAllData(
 
     // 2. Log deletion in activity log before cascade
     await tx.execute(sql`
-      INSERT INTO activity_log (circle_id, actor_id, action, entity_type, entity_id, metadata, created_at)
-      VALUES (${ctx.circleId}, ${ctx.userId}, 'circle_deleted', 'care_circles', ${ctx.circleId}, jsonb_build_object('name', ${circle.name}), now())
+      INSERT INTO activity_log (circle_id, actor_id, action, entity_type, entity_id, summary, diff, created_at)
+      VALUES (${ctx.circleId}, ${ctx.userId}, 'circle_deleted', 'care_circles', ${ctx.circleId}, 'Circle permanently deleted by owner', jsonb_build_object('name', ${circle.name}), now())
     `);
   });
 
@@ -274,4 +275,7 @@ export async function deleteCircleAndAllData(
       DELETE FROM care_circles WHERE id = ${ctx.circleId}
     `);
   });
+
+  // 5. Invalidate live caches
+  await bumpCircleVersion(ctx.circleId).catch(() => {});
 }

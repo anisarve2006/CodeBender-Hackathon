@@ -90,13 +90,13 @@ export default async function CareModePage({ params }: CareModePageProps) {
       ),
       nextAppointment: apptRes.rows[0]
         ? ({
-            id: apptRes.rows[0].id,
-            title: apptRes.rows[0].title,
-            doctorName: apptRes.rows[0].doctor_name,
-            specialty: apptRes.rows[0].specialty,
-            location: apptRes.rows[0].location,
-            startsAt: apptRes.rows[0].starts_at,
-          } as CareModeAppointment)
+          id: apptRes.rows[0].id,
+          title: apptRes.rows[0].title,
+          doctorName: apptRes.rows[0].doctor_name,
+          specialty: apptRes.rows[0].specialty,
+          location: apptRes.rows[0].location,
+          startsAt: apptRes.rows[0].starts_at,
+        } as CareModeAppointment)
         : null,
     };
   });

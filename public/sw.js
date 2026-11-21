@@ -41,10 +41,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Strict privacy rule: Never cache document URLs, API Blob responses, or sensitive endpoints
+  // Strict privacy rule: Never cache document URLs, API Blob responses, calendar feeds, or job endpoints
   if (
     url.pathname.startsWith('/api/documents') ||
     url.pathname.includes('/documents/') ||
+    url.pathname.startsWith('/api/calendar') ||
     url.pathname.startsWith('/api/jobs')
   ) {
     return;
