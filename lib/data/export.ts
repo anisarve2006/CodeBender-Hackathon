@@ -277,5 +277,5 @@ export async function deleteCircleAndAllData(
   });
 
   // 5. Invalidate live caches
-  await bumpCircleVersion(ctx.circleId).catch(() => {});
+  await bumpCircleVersion(ctx.circleId).catch(() => { });
 }

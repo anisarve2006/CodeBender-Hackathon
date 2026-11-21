@@ -97,15 +97,15 @@ export async function listMedications(ctx: CircleContext): Promise<MedicationLis
         updatedAt: row.updatedAt,
         refill: row.refillId
           ? {
-              id: row.refillId,
-              quantityOnHand: row.quantityOnHand ?? 0,
-              dailyUsage: row.dailyUsage ?? 1,
-              lastRefilledOn: row.lastRefilledOn,
-              nextRefillDue: row.nextRefillDue,
-              status: row.refillStatus ?? 'ok',
-              assignedTo: row.assignedTo,
-              assigneeName: row.assigneeName,
-            }
+            id: row.refillId,
+            quantityOnHand: row.quantityOnHand ?? 0,
+            dailyUsage: row.dailyUsage ?? 1,
+            lastRefilledOn: row.lastRefilledOn,
+            nextRefillDue: row.nextRefillDue,
+            status: row.refillStatus ?? 'ok',
+            assignedTo: row.assignedTo,
+            assigneeName: row.assigneeName,
+          }
           : null,
       };
 
