@@ -1,21 +1,25 @@
-'use client';
-
 import * as React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { Database } from 'lucide-react';
+import { requireCircleRole } from '@/lib/data/circle-context';
+import { CircleDataSettingsView } from '@/components/features/settings-data/circle-data-settings-view';
 
-export default function CircleDataSettingsPage() {
+interface CircleDataSettingsPageProps {
+  params: Promise<{ circleId: string }>;
+}
+
+export default async function CircleDataSettingsPage({ params }: CircleDataSettingsPageProps) {
+  const { circleId } = await params;
+  const ctx = await requireCircleRole(circleId, ['owner']);
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Data & Export"
-        subtitle="DPDP Act data download (JSON + files ZIP) and circle deletion"
+        title="Data Portability & Erasure"
+        subtitle="Download complete records archive under DPDP Act 2023 rights, or permanently delete circle"
       />
-      <EmptyState
-        title="Data Portability & Deletion"
-        description="Coming soon - Member B feature implementation"
-        icon={Database}
+      <CircleDataSettingsView
+        circleId={circleId}
+        circleName={ctx.circleName}
       />
     </div>
   );
