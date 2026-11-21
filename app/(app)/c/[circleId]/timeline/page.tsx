@@ -1,22 +1,32 @@
-'use client';
-
 import * as React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { Activity } from 'lucide-react';
+import { requireCircleRole } from '@/lib/data/circle-context';
+import { getCircleTimelineFeed } from '@/lib/data/timeline';
+import { TimelineView } from '@/components/features/timeline/timeline-view';
 
-export default function TimelinePage() {
+interface TimelinePageProps {
+  params: Promise<{ circleId: string }>;
+}
+
+export default async function TimelinePage({ params }: TimelinePageProps) {
+  const { circleId } = await params;
+  const ctx = await requireCircleRole(circleId, [
+    'owner',
+    'coordinator',
+    'caregiver',
+    'viewer',
+    'care_recipient',
+  ]);
+
+  const initialFeed = await getCircleTimelineFeed(ctx, { limit: 20 });
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Care Timeline"
-        subtitle="Chronological feed of appointments, prescriptions, reports, and updates"
+        title="Circle Timeline"
+        subtitle="Chronological feed of appointments, prescriptions, diagnostic reports, and family updates"
       />
-      <EmptyState
-        title="Activity & Record Timeline"
-        description="Coming soon - Member B feature implementation"
-        icon={Activity}
-      />
+      <TimelineView circleId={circleId} initialPage={initialFeed} />
     </div>
   );
 }

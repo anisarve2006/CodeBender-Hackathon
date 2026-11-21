@@ -23,3 +23,8 @@
 ## ADR 6: Vercel Private Blob Storage
 - **Decision:** Store medical prescriptions, lab reports, and discharge summaries in Vercel Blob with `access: 'private'`.
 - **Context:** Direct asset URLs are never exposed. Access is gated by circle membership and sensitivity grants, dispensing short-lived (60-second) signed download URLs.
+
+
+## ADR 7: Document Upload Architecture
+- **Decision:** Document uploads stream through a dedicated Route Handler (`/api/documents/upload`) with strict validation via `lib/utils/blob.ts`.
+- **Context:** Allows uploading up to 10 MB files (PDF, JPEG, PNG, HEIC) without mutating shared `next.config.ts`. Validates magic bytes using `file-type`, auto-orients and strips EXIF using `sharp`, calculates SHA-256 checksums, and persists to private Vercel Blob with immediate orphan rollback on failure.

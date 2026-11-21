@@ -1,22 +1,32 @@
-'use client';
-
 import * as React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { FileText } from 'lucide-react';
+import { requireCircleRole } from '@/lib/data/circle-context';
+import { listDocuments } from '@/lib/data/documents';
+import { DocumentsView } from '@/components/features/documents/documents-view';
 
-export default function DocumentsPage() {
+interface DocumentsPageProps {
+  params: Promise<{ circleId: string }>;
+}
+
+export default async function DocumentsPage({ params }: DocumentsPageProps) {
+  const { circleId } = await params;
+  const ctx = await requireCircleRole(circleId, [
+    'owner',
+    'coordinator',
+    'caregiver',
+    'viewer',
+    'care_recipient',
+  ]);
+
+  const docs = await listDocuments(ctx);
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Medical Documents"
-        subtitle="Securely stored prescriptions, lab reports, and hospital summaries"
+        title="Medical Documents Vault"
+        subtitle="Prescriptions, lab test reports, and hospital summaries with access-controlled 60-second links"
       />
-      <EmptyState
-        title="Medical Records Vault"
-        description="Coming soon - Member B feature implementation (with signed Vercel Blob URLs)"
-        icon={FileText}
-      />
+      <DocumentsView circleId={circleId} role={ctx.role} documents={docs} />
     </div>
   );
 }
