@@ -70,7 +70,7 @@ export const documentAccessLog = pgTable('document_access_log', {
     .references(() => careCircles.id, { onDelete: 'cascade' }),
   userId: uuid('user_id')
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: 'cascade' }),
   action: text('action').default('viewed').notNull(),
   accessedAt: timestamp('accessed_at', { withTimezone: true }).defaultNow().notNull(),
 });

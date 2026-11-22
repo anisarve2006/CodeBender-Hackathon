@@ -18,7 +18,7 @@ export const appointments = pgTable(
     startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
     endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
     status: apptStatusEnum('status').default('scheduled').notNull(),
-    accompaniedBy: uuid('accompanied_by').references(() => users.id),
+    accompaniedBy: uuid('accompanied_by').references(() => users.id, { onDelete: 'set null' }),
     notes: text('notes'),
     sensitivity: sensitivityLevelEnum('sensitivity').default('normal').notNull(),
     createdBy: uuid('created_by')

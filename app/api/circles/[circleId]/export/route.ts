@@ -1,38 +1,31 @@
-import { NextResponse } from 'next/server';
-import { requireUser } from '@/lib/auth/session';
+import { NextResponse, type NextRequest } from 'next/server';
 import { requireCircleRole } from '@/lib/data/circle-context';
-import { getCircleExportData } from '@/lib/data/export';
+import { exportCircleDataZip } from '@/lib/data/export';
 
-export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ circleId: string }> },
+  _request: NextRequest,
+  props: { params: Promise<{ circleId: string }> },
 ) {
   try {
-    const { circleId } = await params;
-    const user = await requireUser();
+    const { circleId } = await props.params;
     const ctx = await requireCircleRole(circleId, ['owner']);
 
-    const exportData = await getCircleExportData(circleId, user.id);
+    const { zipBuffer, circleName } = await exportCircleDataZip(ctx);
+    const safeName = circleName.replace(/[^a-zA-Z0-9.-]/g, '_');
 
-    const safeCircleName = ctx.circleName.toLowerCase().replace(/[^a-z0-9]/g, '-');
-    const filename = `${safeCircleName}-care-records-${new Date().toISOString().split('T')[0]}.json`;
-
-    return new NextResponse(JSON.stringify(exportData, null, 2), {
+    return new Response(new Uint8Array(zipBuffer), {
       status: 200,
       headers: {
-        'Content-Type': 'application/json',
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'Cache-Control': 'no-store',
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename="care-circle-${safeName}-export.zip"`,
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
       },
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unauthorized or failed to export circle records';
-    console.error('Export error:', err);
-    return NextResponse.json(
-      { error: message },
-      { status: 403 },
-    );
+    const message = err instanceof Error ? err.message : 'Export failed';
+    return NextResponse.json({ error: message }, { status: 403 });
   }
 }

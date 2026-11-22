@@ -1,25 +1,25 @@
-import { NextResponse } from 'next/server';
-import { verifyCronOrQStash } from '@/lib/jobs/auth';
-import { runEscalationJob } from '@/lib/jobs/escalation';
+import { NextResponse, type NextRequest } from 'next/server';
+import { verifyQStash } from '@/lib/jobs/verify';
+import { runTaskEscalation } from '@/lib/jobs/escalation';
 
-export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 /**
- * Scheduled job: Hourly overdue task escalation to circle coordinator
- * Runs hourly via Upstash QStash
+ * Scheduled job route: Hourly task escalation for items overdue > 24 hours.
+ * Requires valid Upstash QStash signature.
  */
-export async function POST(request: Request) {
-  const isAuthorized = await verifyCronOrQStash(request);
-  if (!isAuthorized) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export async function POST(request: NextRequest) {
+  const verified = await verifyQStash(request);
+  if (!verified) {
+    return NextResponse.json({ error: 'Unauthorized: Invalid QStash signature' }, { status: 401 });
   }
 
   try {
-    const summary = await runEscalationJob();
-    return NextResponse.json({ ok: true, job: 'escalation', summary });
+    const result = await runTaskEscalation();
+    return NextResponse.json({ ok: true, job: 'escalation', result });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Job failure';
-    console.error('Error executing escalation job:', err);
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    const message = err instanceof Error ? err.message : 'Job failed';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

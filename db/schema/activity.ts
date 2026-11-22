@@ -18,7 +18,7 @@ export const activityLog = pgTable(
     circleId: uuid('circle_id')
       .notNull()
       .references(() => careCircles.id, { onDelete: 'cascade' }),
-    actorId: uuid('actor_id').references(() => users.id),
+    actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
     action: text('action').notNull(),
     entityType: text('entity_type').notNull(),
     entityId: uuid('entity_id').notNull(),

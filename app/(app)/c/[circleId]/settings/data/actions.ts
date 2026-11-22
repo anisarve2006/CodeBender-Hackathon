@@ -1,22 +1,18 @@
 'use server';
 
-import { redirect } from 'next/navigation';
 import { requireCircleRole } from '@/lib/data/circle-context';
-import { deleteCirclePermanently } from '@/lib/jobs/circle-deletion';
-import type { ActionResult } from '@/lib/types/app';
+import { deleteCircleAndAllData } from '@/lib/data/export';
 
-export async function deleteCircleAction(
-  circleId: string,
-  confirmedName: string,
-): Promise<ActionResult<void>> {
+export async function deleteCircleAction(input: {
+  circleId: string;
+  confirmationName: string;
+}) {
   try {
-    await requireCircleRole(circleId, ['owner']);
-    await deleteCirclePermanently(circleId, confirmedName);
+    const ctx = await requireCircleRole(input.circleId, ['owner']);
+    await deleteCircleAndAllData(ctx, input.confirmationName);
+    return { ok: true };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to delete circle.';
-    console.error('Delete circle error:', err);
+    const message = err instanceof Error ? err.message : 'Failed to delete care circle';
     return { ok: false, error: message };
   }
-
-  redirect('/');
 }

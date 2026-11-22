@@ -1,64 +1,119 @@
+import * as React from 'react';
 import { requireCircleRole } from '@/lib/data/circle-context';
-import { getActiveMedications } from '@/lib/data/medications';
-import { getAppointments } from '@/lib/data/appointments';
 import { withUserTx } from '@/db/client';
-import { eq } from 'drizzle-orm';
-import * as schema from '@/db/schema';
-import { CareModeView } from '@/components/features/care-mode/care-mode-view';
+import { sql } from 'drizzle-orm';
+import {
+  CareModeView,
+  type CareModeMedication,
+  type CareModeAppointment,
+} from '@/components/features/care-mode/care-mode-view';
 
-export default async function CareModePage({
-  params,
-}: {
+interface CareModePageProps {
   params: Promise<{ circleId: string }>;
-}) {
+}
+
+export default async function CareModePage({ params }: CareModePageProps) {
   const { circleId } = await params;
-  const ctx = await requireCircleRole(circleId);
-
-  // Fetch care recipient details using withUserTx
-  const recipient = await withUserTx(ctx.userId, async (tx) => {
-    return tx
-      .select({
-        fullName: schema.careRecipients.fullName,
-        emergencyContact: schema.careRecipients.emergencyContact,
-      })
-      .from(schema.careRecipients)
-      .where(eq(schema.careRecipients.circleId, circleId))
-      .limit(1);
-  });
-
-  const [activeMeds, upcomingAppts] = await Promise.all([
-    getActiveMedications(circleId),
-    getAppointments(circleId, 'upcoming'),
+  const ctx = await requireCircleRole(circleId, [
+    'owner',
+    'coordinator',
+    'caregiver',
+    'viewer',
+    'care_recipient',
   ]);
 
-  const medications = activeMeds.map((m) => ({
-    id: m.id,
-    name: m.name,
-    strength: m.strength,
-    instructionsAsWritten: m.instructionsAsWritten,
-    prescribedBy: m.prescribedBy,
-  }));
+  const data = await withUserTx(ctx.userId, async (tx) => {
+    // 1. Recipient & Emergency Contact Details
+    const recipientRes = await tx.execute<{
+      recipient_name: string;
+      emergency_phone: string | null;
+      coordinator_name: string | null;
+      coordinator_phone: string | null;
+    }>(sql`
+      SELECT
+        cr.name AS recipient_name,
+        cr.emergency_phone,
+        COALESCE(u.full_name, 'Family Caregiver') AS coordinator_name,
+        u.phone AS coordinator_phone
+      FROM care_recipients cr
+      LEFT JOIN circle_members cm ON cm.circle_id = cr.circle_id AND cm.role IN ('coordinator', 'owner')
+      LEFT JOIN users u ON cm.user_id = u.id
+      WHERE cr.circle_id = ${circleId}
+      LIMIT 1
+    `);
 
-  const nextAppt =
-    upcomingAppts.length > 0
-      ? {
-          id: upcomingAppts[0].id,
-          title: upcomingAppts[0].title,
-          doctorName: upcomingAppts[0].doctorName,
-          specialty: upcomingAppts[0].specialty,
-          location: upcomingAppts[0].location,
-          startsAt: upcomingAppts[0].startsAt,
-          companionName: upcomingAppts[0].companionName,
-        }
-      : null;
+    // 2. Active Medications
+    const medsRes = await tx.execute<{
+      id: string;
+      name: string;
+      strength: string | null;
+      form: string | null;
+      instructions_as_written: string;
+    }>(sql`
+      SELECT id, name, strength, form, instructions_as_written
+      FROM medications
+      WHERE circle_id = ${circleId}
+        AND is_active = true
+        AND deleted_at IS NULL
+      ORDER BY name ASC
+    `);
+
+    // 3. Next Upcoming Appointment
+    const apptRes = await tx.execute<{
+      id: string;
+      title: string;
+      doctor_name: string | null;
+      specialty: string | null;
+      location: string | null;
+      starts_at: string;
+    }>(sql`
+      SELECT id, title, doctor_name, specialty, location, starts_at::text
+      FROM appointments
+      WHERE circle_id = ${circleId}
+        AND starts_at >= now()
+        AND status = 'scheduled'
+        AND deleted_at IS NULL
+      ORDER BY starts_at ASC
+      LIMIT 1
+    `);
+
+    return {
+      recipient: recipientRes.rows[0],
+      medications: medsRes.rows.map(
+        (m): CareModeMedication => ({
+          id: m.id,
+          name: m.name,
+          strength: m.strength,
+          form: m.form,
+          instructionsAsWritten: m.instructions_as_written,
+        }),
+      ),
+      nextAppointment: apptRes.rows[0]
+        ? ({
+          id: apptRes.rows[0].id,
+          title: apptRes.rows[0].title,
+          doctorName: apptRes.rows[0].doctor_name,
+          specialty: apptRes.rows[0].specialty,
+          location: apptRes.rows[0].location,
+          startsAt: apptRes.rows[0].starts_at,
+        } as CareModeAppointment)
+        : null,
+    };
+  });
+
+  const recipientName = data.recipient?.recipient_name || ctx.recipientName || 'Care Companion';
+  const emergencyPhone =
+    data.recipient?.emergency_phone || data.recipient?.coordinator_phone || null;
+  const contactName =
+    data.recipient?.emergency_phone ? 'Emergency Contact' : data.recipient?.coordinator_name || 'Caregiver';
 
   return (
     <CareModeView
-      circleId={circleId}
-      recipientName={recipient[0]?.fullName || ctx.recipientName}
-      emergencyContact={recipient[0]?.emergencyContact || null}
-      medications={medications}
-      nextAppointment={nextAppt}
+      recipientName={recipientName}
+      emergencyPhone={emergencyPhone}
+      contactName={contactName}
+      medications={data.medications}
+      nextAppointment={data.nextAppointment}
     />
   );
 }

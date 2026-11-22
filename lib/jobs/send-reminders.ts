@@ -1,201 +1,216 @@
-import 'server-only';
-import { sql } from 'drizzle-orm';
 import { adminDb } from '@/db/admin';
+import { sql } from 'drizzle-orm';
 import { sendEmail } from '@/lib/notifications/email';
-import { sendWebPushToUser } from './web-push';
+import { sendPushNotification } from './push';
+import { clientEnv } from '@/lib/env';
 
-export type ReminderDispatchResult = {
-  processed: number;
-  sent: number;
-  failed: number;
-  skipped: number;
-};
+interface ReminderBatchRow extends Record<string, unknown> {
+  id: string;
+  circle_id: string;
+  circle_name: string;
+  target_user_id: string;
+  user_email: string;
+  user_name: string;
+  user_timezone: string;
+  notification_prefs: {
+    email?: boolean;
+    push?: boolean;
+    digest?: boolean;
+    quietHours?: { start: string; end: string };
+  } | null;
+  kind: string;
+  channel: 'email' | 'push';
+  entity_type: string;
+  entity_id: string;
+  remind_at: string;
+  payload: Record<string, unknown> | null;
+  attempt_count: number;
+}
 
 /**
- * Format completely neutral, privacy-safe notifications.
- * Medical guardrail: NEVER include medicine names, diagnoses, or document titles.
+ * Checks whether current time in user's timezone falls within their quiet hours.
  */
-export function formatNeutralReminder(
-  kind: string,
-  circleName: string,
-): { title: string; body: string; url: string } {
-  switch (kind) {
-    case 'appointment':
-      return {
-        title: 'Upcoming Appointment Reminder',
-        body: `You have an upcoming doctor consultation scheduled in ${circleName}. Please log in to view clinic location and details.`,
-        url: '/',
-      };
-    case 'refill':
-      return {
-        title: 'Care Refill Reminder',
-        body: `A scheduled care refill requires attention in ${circleName}. Please log in to check supply counts and update status.`,
-        url: '/',
-      };
-    case 'task_due':
-      return {
-        title: 'Care Task Reminder',
-        body: `You have a care coordination task due in ${circleName}. Please check your task board.`,
-        url: '/',
-      };
-    case 'nudge':
-      return {
-        title: 'Family Care Nudge',
-        body: `A family member sent a reminder regarding care coordination in ${circleName}.`,
-        url: '/',
-      };
-    case 'escalation':
-      return {
-        title: 'Overdue Care Item Escalation',
-        body: `A care item in ${circleName} has been overdue for more than 24 hours. Please review.`,
-        url: '/',
-      };
-    default:
-      return {
-        title: 'Care Notification',
-        body: `You have a new care coordination update in ${circleName}.`,
-        url: '/',
-      };
+function isQuietHours(
+  timezone: string,
+  quietHours?: { start: string; end: string },
+): boolean {
+  if (!quietHours?.start || !quietHours?.end) return false;
+
+  try {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone || 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(now);
+    const hour = parts.find((p) => p.type === 'hour')?.value || '00';
+    const minute = parts.find((p) => p.type === 'minute')?.value || '00';
+    const currentTimeStr = `${hour}:${minute}`;
+
+    const { start, end } = quietHours;
+    if (start < end) {
+      return currentTimeStr >= start && currentTimeStr <= end;
+    } else {
+      // Over midnight (e.g. 22:00 to 07:00)
+      return currentTimeStr >= start || currentTimeStr <= end;
+    }
+  } catch {
+    return false;
   }
 }
 
-export async function runSendRemindersJob(): Promise<ReminderDispatchResult> {
-  const result: ReminderDispatchResult = {
-    processed: 0,
-    sent: 0,
-    failed: 0,
-    skipped: 0,
-  };
+/**
+ * Scheduled Job: Dispatches pending reminders with:
+ * - Atomic FOR UPDATE SKIP LOCKED batch acquisition
+ * - Strict quiet hours and notification preference respect
+ * - Medical privacy guardrail: Zero medicine names or diagnoses in subjects/bodies
+ * - Idempotent delivery (never double-sends even under concurrent executions)
+ */
+export async function processPendingRemindersBatch(limit = 500) {
+  return adminDb.transaction(async (tx) => {
+    // 1. Lock pending reminders atomically
+    const batch = await tx.execute<ReminderBatchRow>(sql`
+      SELECT
+        r.id,
+        r.circle_id,
+        c.name AS circle_name,
+        r.target_user_id,
+        u.email AS user_email,
+        u.full_name AS user_name,
+        COALESCE(u.timezone, 'Asia/Kolkata') AS user_timezone,
+        u.notification_prefs,
+        r.kind,
+        r.channel,
+        r.entity_type,
+        r.entity_id,
+        r.remind_at::text,
+        r.payload,
+        r.attempt_count
+      FROM reminders r
+      JOIN users u ON r.target_user_id = u.id
+      JOIN care_circles c ON r.circle_id = c.id
+      WHERE r.sent_at IS NULL
+        AND r.remind_at <= now()
+        AND r.attempt_count < 5
+      ORDER BY r.remind_at ASC
+      LIMIT ${limit}
+      FOR UPDATE OF r SKIP LOCKED
+    `);
 
-  // Claim up to 500 due reminders with row lock
-  const claimed = await adminDb.execute<{
-    id: string;
-    circle_id: string;
-    target_user_id: string;
-    kind: string;
-    channel: string;
-    entity_type: string;
-    entity_id: string;
-    attempt_count: number;
-    email: string;
-    full_name: string;
-    notification_prefs: { email?: boolean; push?: boolean } | null;
-    circle_name: string;
-  }>(sql`
-    SELECT
-      r.id,
-      r.circle_id,
-      r.target_user_id,
-      r.kind,
-      r.channel,
-      r.entity_type,
-      r.entity_id,
-      r.attempt_count,
-      u.email,
-      u.full_name,
-      u.notification_prefs,
-      c.name AS circle_name
-    FROM reminders r
-    JOIN users u ON r.target_user_id = u.id
-    JOIN care_circles c ON r.circle_id = c.id
-    WHERE r.sent_at IS NULL
-      AND r.remind_at <= now()
-      AND r.attempt_count < 5
-    ORDER BY r.remind_at ASC
-    LIMIT 500
-    FOR UPDATE OF r SKIP LOCKED;
-  `);
+    const rows = batch.rows;
+    let successCount = 0;
+    let failedCount = 0;
+    let quietHoursDeferred = 0;
 
-  const rows = claimed.rows;
-  result.processed = rows.length;
+    for (const item of rows) {
+      const prefs = item.notification_prefs;
 
-  for (const reminder of rows) {
-    const prefs = reminder.notification_prefs || { email: true, push: false };
-    const neutral = formatNeutralReminder(reminder.kind, reminder.circle_name);
-
-    let dispatchSuccess = false;
-    let dispatchError: string | null = null;
-
-    try {
-      if (reminder.channel === 'email') {
-        if (prefs.email === false) {
-          // User explicitly disabled email
-          result.skipped++;
-          dispatchSuccess = true;
-        } else {
-          await sendEmail({
-            to: reminder.email,
-            subject: `${neutral.title} – Family Care Hub`,
-            html: `
-              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-                <h2 style="color: #0f172a; margin-bottom: 16px;">${neutral.title}</h2>
-                <p style="font-size: 16px; color: #334155; line-height: 1.5;">${neutral.body}</p>
-                <div style="margin: 28px 0;">
-                  <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}"
-                     style="background-color: #0284c7; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block;">
-                    Open Family Care Hub
-                  </a>
-                </div>
-                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
-                <p style="font-size: 12px; color: #64748b;">
-                  Family Care Hub organises information only and does not provide medical advice. Always consult a doctor.<br />
-                  To manage your notification preferences, log in to your circle settings.
-                </p>
-              </div>
-            `,
-            text: `${neutral.title}\n\n${neutral.body}\n\nOpen Family Care Hub: ${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}\n\nFamily Care Hub organises information only and does not provide medical advice.`,
-          });
-          dispatchSuccess = true;
-          result.sent++;
-        }
-      } else if (reminder.channel === 'push') {
-        if (prefs.push === false) {
-          // User disabled push
-          result.skipped++;
-          dispatchSuccess = true;
-        } else {
-          const pushRes = await sendWebPushToUser(reminder.target_user_id, {
-            title: neutral.title,
-            body: neutral.body,
-            url: neutral.url,
-          });
-          if (pushRes.sent > 0 || pushRes.failed === 0) {
-            dispatchSuccess = true;
-            result.sent++;
-          } else {
-            dispatchError = 'Push failed to reach active subscriptions';
-            result.failed++;
-          }
-        }
-      } else {
-        // In-app or other channel
-        dispatchSuccess = true;
-        result.sent++;
+      // 2. Respect quiet hours
+      if (prefs?.quietHours && isQuietHours(item.user_timezone, prefs.quietHours)) {
+        // Defer remind_at by 30 minutes
+        await tx.execute(sql`
+          UPDATE reminders
+          SET remind_at = now() + interval '30 minutes'
+          WHERE id = ${item.id}
+        `);
+        quietHoursDeferred++;
+        continue;
       }
-    } catch (err: unknown) {
-      dispatchSuccess = false;
-      dispatchError = err instanceof Error ? err.message : 'Unknown dispatch error';
-      result.failed++;
+
+      // 3. Respect user opt-out preferences
+      if (item.channel === 'email' && prefs?.email === false) {
+        await tx.execute(sql`UPDATE reminders SET sent_at = now() WHERE id = ${item.id}`);
+        successCount++;
+        continue;
+      }
+
+      if (item.channel === 'push' && prefs?.push === false) {
+        await tx.execute(sql`UPDATE reminders SET sent_at = now() WHERE id = ${item.id}`);
+        successCount++;
+        continue;
+      }
+
+      // 4. Construct privacy-compliant notification message
+      // Guardrail: Never include medicine names, diagnoses, or document titles
+      const circleName = item.circle_name;
+      let subject = `Care notification for ${circleName}`;
+      let bodyText = `You have an update in your family care circle "${circleName}".`;
+      let actionUrl = `${clientEnv.NEXT_PUBLIC_SITE_URL}/c/${item.circle_id}`;
+
+      if (item.entity_type === 'appointment') {
+        subject = `Doctor appointment reminder – ${circleName}`;
+        bodyText = `A doctor appointment is scheduled in your family care circle "${circleName}". Please check the schedule for details.`;
+        actionUrl = `${clientEnv.NEXT_PUBLIC_SITE_URL}/c/${item.circle_id}/appointments`;
+      } else if (item.entity_type === 'refill') {
+        subject = `Medication refill reminder – ${circleName}`;
+        bodyText = `A prescription refill requires attention in your family care circle "${circleName}".`;
+        actionUrl = `${clientEnv.NEXT_PUBLIC_SITE_URL}/c/${item.circle_id}/meds`;
+      } else if (item.entity_type === 'task') {
+        subject = `Care task reminder – ${circleName}`;
+        bodyText = `You have a care task due in "${circleName}".`;
+        actionUrl = `${clientEnv.NEXT_PUBLIC_SITE_URL}/c/${item.circle_id}/tasks`;
+      }
+
+      try {
+        if (item.channel === 'email') {
+          const html = `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+              <h2 style="color: #0f172a; font-size: 18px; margin-top: 0;">Family Care Hub Notification</h2>
+              <p style="color: #334155; font-size: 15px; line-height: 1.5;">${bodyText}</p>
+              <div style="margin: 24px 0;">
+                <a href="${actionUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 600; display: inline-block;">
+                  Open Family Care Hub
+                </a>
+              </div>
+              <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+              <p style="color: #64748b; font-size: 12px; margin: 0;">
+                To change your email or push notification preferences, visit your
+                <a href="${clientEnv.NEXT_PUBLIC_SITE_URL}/c/${item.circle_id}/settings/notifications" style="color: #2563eb;">Notification Settings</a>.
+              </p>
+            </div>
+          `;
+
+          await sendEmail({
+            to: item.user_email,
+            subject,
+            html,
+            text: bodyText,
+          });
+        } else if (item.channel === 'push') {
+          await sendPushNotification(item.target_user_id, {
+            title: subject,
+            body: bodyText,
+            url: actionUrl,
+          });
+        }
+
+        // 5. Mark successfully dispatched
+        await tx.execute(sql`
+          UPDATE reminders
+          SET sent_at = now()
+          WHERE id = ${item.id}
+        `);
+        successCount++;
+      } catch (sendErr: unknown) {
+        failedCount++;
+        const errMsg = sendErr instanceof Error ? sendErr.message : 'Unknown dispatch error';
+        await tx.execute(sql`
+          UPDATE reminders
+          SET
+            attempt_count = attempt_count + 1,
+            last_error = ${errMsg}
+          WHERE id = ${item.id}
+        `);
+      }
     }
 
-    // Update row state idempotently
-    if (dispatchSuccess) {
-      await adminDb.execute(sql`
-        UPDATE reminders
-        SET sent_at = now(),
-            last_error = NULL
-        WHERE id = ${reminder.id}::uuid;
-      `);
-    } else {
-      const nextAttempt = (reminder.attempt_count || 0) + 1;
-      await adminDb.execute(sql`
-        UPDATE reminders
-        SET attempt_count = ${nextAttempt},
-            last_error = ${dispatchError}
-        WHERE id = ${reminder.id}::uuid;
-      `);
-    }
-  }
-
-  return result;
+    return {
+      total: rows.length,
+      successCount,
+      failedCount,
+      quietHoursDeferred,
+    };
+  });
 }

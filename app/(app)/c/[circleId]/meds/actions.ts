@@ -1,65 +1,110 @@
 'use server';
 
 /**
- * Meds & Refills actions
+ * Medications and Refills Server Actions
  * Owner: Member B
+ * Role-gated via requireCircleRole → withUserTx → bumpCircleVersion → revalidatePath.
  */
+
 import { revalidatePath } from 'next/cache';
 import { createAction } from '@/lib/utils/action';
 import { requireCircleRole } from '@/lib/data/circle-context';
-import { createMedicationWithRefill, updateMedication } from '@/lib/data/medications';
-import { markRefillOrdered, markRefillRefilled } from '@/lib/data/refills';
-import { createMedicationSchema, updateMedicationSchema } from '@/lib/schemas/medications';
-import { markRefillOrderedSchema, markRefillRefilledSchema } from '@/lib/schemas/refills';
+import { bumpCircleVersion } from '@/lib/live/version';
+import {
+  createMedication,
+  deleteMedication,
+  markRefillCompleted,
+  markRefillOrdered,
+  updateMedication,
+} from '@/lib/data/medications';
+import {
+  createMedicationSchema,
+  markOrderedSchema,
+  medicationRefSchema,
+  recordRefillSchema,
+  updateMedicationSchema,
+} from '@/lib/schemas/medications';
 import type { CircleRole } from '@/lib/types/app';
 
-/** Roles allowed to create, edit and refill medicines (mirrors can('manage_records')). */
 const MANAGE_ROLES: CircleRole[] = ['owner', 'coordinator', 'caregiver'];
 
-function medsPath(circleId: string) {
-  return `/c/${circleId}/meds`;
+function refreshMedsViews(circleId: string) {
+  revalidatePath(`/c/${circleId}/meds`);
+  revalidatePath(`/c/${circleId}/care-mode`);
+  revalidatePath(`/c/${circleId}`);
 }
 
 export const createMedicationAction = createAction(
   createMedicationSchema,
-  async (data) => {
+  async (data, { user }) => {
+    if (!user) throw new Error('Please sign in again.');
     const ctx = await requireCircleRole(data.circleId, MANAGE_ROLES);
-    const medication = await createMedicationWithRefill(ctx, data);
-    revalidatePath(medsPath(data.circleId));
-    return { id: medication.id };
+
+    const medicationId = await createMedication(ctx, data);
+
+    await bumpCircleVersion(ctx.circleId);
+    refreshMedsViews(ctx.circleId);
+    return { medicationId };
   },
   { auth: 'verified' },
 );
 
 export const updateMedicationAction = createAction(
   updateMedicationSchema,
-  async (data) => {
+  async (data, { user }) => {
+    if (!user) throw new Error('Please sign in again.');
     const ctx = await requireCircleRole(data.circleId, MANAGE_ROLES);
-    const medication = await updateMedication(ctx, data.id, data);
-    revalidatePath(medsPath(data.circleId));
-    return { id: medication.id };
+
+    await updateMedication(ctx, data);
+
+    await bumpCircleVersion(ctx.circleId);
+    refreshMedsViews(ctx.circleId);
+    return { medicationId: data.medicationId };
   },
   { auth: 'verified' },
 );
 
 export const markRefillOrderedAction = createAction(
-  markRefillOrderedSchema,
-  async (data) => {
-    const ctx = await requireCircleRole(data.circleId, MANAGE_ROLES);
-    const refill = await markRefillOrdered(ctx, data.refillId);
-    revalidatePath(medsPath(data.circleId));
-    return { id: refill.id };
+  markOrderedSchema,
+  async ({ circleId, refillId }, { user }) => {
+    if (!user) throw new Error('Please sign in again.');
+    const ctx = await requireCircleRole(circleId, MANAGE_ROLES);
+
+    await markRefillOrdered(ctx, refillId);
+
+    await bumpCircleVersion(ctx.circleId);
+    refreshMedsViews(ctx.circleId);
+    return { refillId };
   },
   { auth: 'verified' },
 );
 
-export const markRefillRefilledAction = createAction(
-  markRefillRefilledSchema,
-  async (data) => {
-    const ctx = await requireCircleRole(data.circleId, MANAGE_ROLES);
-    const refill = await markRefillRefilled(ctx, data);
-    revalidatePath(medsPath(data.circleId));
-    return { id: refill.id };
+export const recordRefillAction = createAction(
+  recordRefillSchema,
+  async ({ circleId, refillId, quantityAdded }, { user }) => {
+    if (!user) throw new Error('Please sign in again.');
+    const ctx = await requireCircleRole(circleId, MANAGE_ROLES);
+
+    await markRefillCompleted(ctx, refillId, quantityAdded);
+
+    await bumpCircleVersion(ctx.circleId);
+    refreshMedsViews(ctx.circleId);
+    return { refillId };
+  },
+  { auth: 'verified' },
+);
+
+export const deleteMedicationAction = createAction(
+  medicationRefSchema,
+  async ({ circleId, medicationId }, { user }) => {
+    if (!user) throw new Error('Please sign in again.');
+    const ctx = await requireCircleRole(circleId, MANAGE_ROLES);
+
+    await deleteMedication(ctx, medicationId);
+
+    await bumpCircleVersion(ctx.circleId);
+    refreshMedsViews(ctx.circleId);
+    return { medicationId };
   },
   { auth: 'verified' },
 );

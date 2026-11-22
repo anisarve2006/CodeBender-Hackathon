@@ -1,11 +1,27 @@
-const CACHE_NAME = 'fch-v1';
-const APP_SHELL = ['/', '/favicon.ico'];
+/**
+ * public/sw.js
+ * Service Worker for Family Care Hub:
+ * 1. Web Push notifications display & click handling
+ * 2. PWA app shell and offline dashboard caching
+ * 3. Security guardrail: Never caches sensitive document URLs or private Blob downloads
+ */
+
+const CACHE_NAME = 'fch-offline-v1';
+
+const STATIC_ASSETS = [
+  '/',
+  '/manifest.webmanifest',
+  '/icon-192.png',
+  '/icon-512.png',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(APP_SHELL);
-    })
+      return cache.addAll(STATIC_ASSETS).catch(() => {
+        // Continue even if some static icons are not yet present in dev
+      });
+    }),
   );
   self.skipWaiting();
 });
@@ -14,69 +30,77 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
+        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)),
       );
-    })
+    }),
   );
   self.clients.claim();
 });
 
-// Cache-falling-back-to-network for navigation requests to enable read-only offline viewing
+// Fetch handler: Network-first for navigation, falling back to cache if offline
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
+  const url = new URL(event.request.url);
 
-  // Don't intercept API routes or non-GET requests
-  if (request.method !== 'GET' || request.url.includes('/api/')) {
+  // Strict privacy rule: Never cache document URLs, API Blob responses, calendar feeds, or job endpoints
+  if (
+    url.pathname.startsWith('/api/documents') ||
+    url.pathname.includes('/documents/') ||
+    url.pathname.startsWith('/api/calendar') ||
+    url.pathname.startsWith('/api/jobs')
+  ) {
     return;
   }
 
-  // Handle HTML document navigation requests
-  if (request.mode === 'navigate') {
+  // For HTML page navigation (e.g. Status board, Tasks), try network then cache
+  if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
+      fetch(event.request)
         .then((response) => {
-          // Clone and cache the successful HTML response
-          if (response.status === 200) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
           return response;
         })
-        .catch(() => {
-          // If offline, return the cached version
-          return caches.match(request).then((cached) => {
-            if (cached) {
-              return cached;
-            }
-            return caches.match('/');
-          });
-        })
+        .catch(async () => {
+          const cached = await caches.match(event.request);
+          if (cached) return cached;
+          const fallback = await caches.match('/');
+          if (fallback) return fallback;
+          return new Response(
+            '<html><body><h1>Offline</h1><p>You are offline. Showing last saved care info when available.</p></body></html>',
+            { headers: { 'Content-Type': 'text/html' } },
+          );
+        }),
     );
     return;
   }
 
-  // Static assets (CSS, JS, images)
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      return (
-        cached ||
-        fetch(request).then((response) => {
-          if (response.status === 200 && request.url.startsWith(self.location.origin)) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-      );
-    })
-  );
+  // Cache-first for static icons and assets
+  if (
+    url.pathname.startsWith('/_next/static/') ||
+    url.pathname.endsWith('.png') ||
+    url.pathname.endsWith('.svg') ||
+    url.pathname.endsWith('.ico')
+  ) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        return (
+          cached ||
+          fetch(event.request).then((response) => {
+            if (response.ok) {
+              const clone = response.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            }
+            return response;
+          })
+        );
+      }),
+    );
+  }
 });
 
-// Push notification handling
+// Web Push event listener
 self.addEventListener('push', (event) => {
   let data = {
     title: 'Family Care Hub',
@@ -94,9 +118,9 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body,
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
-    vibrate: [100, 50, 100],
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: data.tag || 'fch-notification',
     data: {
       url: data.url || '/',
     },
@@ -105,21 +129,21 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(data.title, options));
 });
 
-// Notification click to open app
+// Notification click listener
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || '/';
+  const urlToOpen = event.notification.data?.url || '/';
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       for (const client of windowClients) {
-        if (client.url === targetUrl && 'focus' in client) {
+        if (client.url.includes(urlToOpen) && 'focus' in client) {
           return client.focus();
         }
       }
-      if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(urlToOpen);
       }
-    })
+    }),
   );
 });

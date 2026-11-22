@@ -1,97 +1,81 @@
-import 'server-only';
-import { sql } from 'drizzle-orm';
 import { adminDb } from '@/db/admin';
+import { sql } from 'drizzle-orm';
+import { bumpCircleVersion } from '@/lib/live/version';
 
-export type EscalationJobResult = {
-  tasksChecked: number;
-  escalationsQueued: number;
-};
+interface OverdueTaskRow extends Record<string, unknown> {
+  task_id: string;
+  circle_id: string;
+  title: string;
+  coordinator_id: string | null;
+}
 
-export async function runEscalationJob(): Promise<EscalationJobResult> {
-  const result: EscalationJobResult = {
-    tasksChecked: 0,
-    escalationsQueued: 0,
-  };
-
-  // Find tasks overdue > 24h that haven't been completed or cancelled
-  const overdueTasks = await adminDb.execute<{
-    id: string;
-    circle_id: string;
-    title: string;
-    due_at: string;
-    assigned_to: string | null;
-  }>(sql`
+/**
+ * Scheduled Job: Hourly Task Escalation
+ * - Scans for tasks overdue by more than 24 hours
+ * - Idempotently enqueues an escalation reminder to the circle coordinator (or owner)
+ * - Ensures exactly once notification per task escalation window
+ */
+export async function runTaskEscalation() {
+  const overdueTasks = await adminDb.execute<OverdueTaskRow>(sql`
     SELECT
-      t.id,
+      t.id AS task_id,
       t.circle_id,
       t.title,
-      t.due_at,
-      t.assigned_to
+      COALESCE(
+        (SELECT cm.user_id FROM circle_members cm WHERE cm.circle_id = t.circle_id AND cm.role = 'coordinator' LIMIT 1),
+        (SELECT cm.user_id FROM circle_members cm WHERE cm.circle_id = t.circle_id AND cm.role = 'owner' LIMIT 1)
+      ) AS coordinator_id
     FROM tasks t
     WHERE t.status IN ('todo', 'in_progress')
       AND t.due_at < (now() - interval '24 hours')
-      AND t.deleted_at IS NULL;
+      AND t.deleted_at IS NULL
   `);
 
-  const tasks = overdueTasks.rows;
-  result.tasksChecked = tasks.length;
+  const affectedCircles = new Set<string>();
+  let escalatedCount = 0;
 
-  for (const task of tasks) {
-    // Check if an escalation was already enqueued for this task
-    const alreadyEscalated = await adminDb.execute<{ id: string }>(sql`
-      SELECT id FROM reminders
-      WHERE kind = 'escalation'::reminder_kind
-        AND entity_type = 'task'
-        AND entity_id = ${task.id}::uuid
-      LIMIT 1;
-    `);
+  for (const task of overdueTasks.rows) {
+    if (!task.coordinator_id) continue;
+    affectedCircles.add(task.circle_id);
 
-    if (alreadyEscalated.rows.length > 0) {
-      // Already escalated once; avoid duplicate spam
-      continue;
-    }
-
-    // Find coordinator for this circle (fallback to owner)
-    const coordinators = await adminDb.execute<{ user_id: string }>(sql`
-      SELECT user_id FROM circle_members
-      WHERE circle_id = ${task.circle_id}::uuid
-        AND role IN ('coordinator', 'owner')
-      ORDER BY CASE WHEN role = 'coordinator' THEN 1 ELSE 2 END
-      LIMIT 1;
-    `);
-
-    if (coordinators.rows.length === 0) {
-      continue;
-    }
-
-    const coordinatorId = coordinators.rows[0].user_id;
-
-    // Enqueue escalation reminder
+    // Enqueue escalation reminder to coordinator via frozen idempotent contract
     await adminDb.execute(sql`
-      INSERT INTO reminders (
-        circle_id,
-        target_user_id,
-        kind,
-        channel,
-        entity_type,
-        entity_id,
-        remind_at,
-        payload
-      ) VALUES (
+      SELECT enqueue_reminder(
         ${task.circle_id}::uuid,
-        ${coordinatorId}::uuid,
-        'escalation'::reminder_kind,
+        ${task.coordinator_id}::uuid,
+        'task_due'::reminder_kind,
         'email'::notification_channel,
         'task',
-        ${task.id}::uuid,
+        ${task.task_id}::uuid,
         now(),
-        '{}'::jsonb
+        '{"escalated": true}'::jsonb
       )
-      ON CONFLICT (kind, entity_id, target_user_id, remind_at) DO NOTHING;
     `);
 
-    result.escalationsQueued++;
+    await adminDb.execute(sql`
+      SELECT enqueue_reminder(
+        ${task.circle_id}::uuid,
+        ${task.coordinator_id}::uuid,
+        'task_due'::reminder_kind,
+        'push'::notification_channel,
+        'task',
+        ${task.task_id}::uuid,
+        now(),
+        '{"escalated": true}'::jsonb
+      )
+    `);
+
+    escalatedCount++;
   }
 
-  return result;
+  // Bump versions for live updates
+  for (const circleId of affectedCircles) {
+    await bumpCircleVersion(circleId);
+  }
+
+  return {
+    overdueFound: overdueTasks.rows.length,
+    escalatedCount,
+    affectedCircles: affectedCircles.size,
+  };
 }

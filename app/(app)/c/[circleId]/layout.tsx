@@ -1,14 +1,15 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Heart } from 'lucide-react';
 import { requireCircleRole } from '@/lib/data/circle-context';
 import { MAIN_NAV_ITEMS } from '@/lib/nav';
 import { QuickAddButton } from '@/components/shared/QuickAddButton';
 import { RoleBadge } from '@/components/shared/RoleBadge';
 import { LiveCircleListener } from './live-listener';
-import { PwaListener } from '@/components/features/pwa/pwa-listener';
 import { CircleNav } from './circle-nav';
 import { CircleUserMenu } from './circle-user-menu';
+import { PwaListener } from '@/components/features/pwa/pwa-listener';
 
 export default async function CircleLayout({
   children,
@@ -33,29 +34,28 @@ export default async function CircleLayout({
       {/* Top Header */}
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:px-6">
         <div className="flex items-center gap-3">
-          <Link href={`/c/${circleId}`} className="flex items-center gap-2 font-bold tracking-tight text-lg">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
-              FC
+          <Link href={`/c/${circleId}`} className="flex items-center gap-2.5 font-bold tracking-tight text-lg text-foreground hover:opacity-90 transition-opacity">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-semibold shadow-xs">
+              <Heart className="h-5 w-5 fill-current" />
             </span>
-            <span>{ctx.circleName}</span>
+            <div className="flex flex-col">
+              <span className="leading-tight text-base sm:text-lg">{ctx.circleName}</span>
+              <span className="text-[11px] font-medium text-muted-foreground leading-none">
+                Caring for {ctx.recipientName}
+              </span>
+            </div>
           </Link>
           <RoleBadge role={ctx.role} />
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="hidden sm:inline text-xs text-muted-foreground">
-            Care for <strong className="text-foreground">{ctx.recipientName}</strong>
-          </span>
           <CircleUserMenu />
         </div>
       </header>
 
       <div className="flex flex-1">
         {/* Desktop Sidebar */}
-        <aside className="hidden w-64 border-r bg-background md:block p-4 space-y-6">
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-2">
-            Navigation
-          </div>
+        <aside className="hidden w-64 border-r bg-background/50 md:block p-4 space-y-4">
           <CircleNav circleId={circleId} items={MAIN_NAV_ITEMS} />
         </aside>
 

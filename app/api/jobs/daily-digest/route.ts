@@ -1,25 +1,25 @@
-import { NextResponse } from 'next/server';
-import { verifyCronOrQStash } from '@/lib/jobs/auth';
-import { runDailyDigestJob } from '@/lib/jobs/daily-digest';
+import { NextResponse, type NextRequest } from 'next/server';
+import { verifyQStash } from '@/lib/jobs/verify';
+import { sendDailyDigests } from '@/lib/jobs/daily-digest';
 
-export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 /**
- * Scheduled job: Evening 20:00 IST daily digest email dispatcher
- * Runs daily at 20:00 IST via Upstash QStash
+ * Scheduled job route: Daily evening care coordination digest (20:00 IST).
+ * Requires valid Upstash QStash signature.
  */
-export async function POST(request: Request) {
-  const isAuthorized = await verifyCronOrQStash(request);
-  if (!isAuthorized) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export async function POST(request: NextRequest) {
+  const verified = await verifyQStash(request);
+  if (!verified) {
+    return NextResponse.json({ error: 'Unauthorized: Invalid QStash signature' }, { status: 401 });
   }
 
   try {
-    const summary = await runDailyDigestJob();
-    return NextResponse.json({ ok: true, job: 'daily-digest', summary });
+    const result = await sendDailyDigests();
+    return NextResponse.json({ ok: true, job: 'daily-digest', result });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Job failure';
-    console.error('Error executing daily-digest job:', err);
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    const message = err instanceof Error ? err.message : 'Job failed';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

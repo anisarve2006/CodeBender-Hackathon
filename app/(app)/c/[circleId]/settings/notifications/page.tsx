@@ -1,36 +1,38 @@
+import * as React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { requireVerifiedUser } from '@/lib/auth/session';
+import { requireUser } from '@/lib/auth/session';
 import { requireCircleRole } from '@/lib/data/circle-context';
-import { getUserNotificationPreferences } from '@/lib/jobs/user-prefs';
-import { NotificationSettingsForm } from '@/components/features/notifications/notification-settings-form';
+import { getUserNotificationPrefs } from '@/lib/data/notifications';
+import { NotificationSettingsView } from '@/components/features/notifications/notification-settings-view';
+import { clientEnv } from '@/lib/env';
 
-export default async function NotificationSettingsPage({
-  params,
-}: {
+interface NotificationSettingsPageProps {
   params: Promise<{ circleId: string }>;
-}) {
-  const { circleId } = await params;
-  await requireCircleRole(circleId);
-  const user = await requireVerifiedUser();
+}
 
-  const initialPrefs = await getUserNotificationPreferences(user.id);
-  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+export default async function NotificationSettingsPage({ params }: NotificationSettingsPageProps) {
+  const { circleId } = await params;
+  const user = await requireUser();
+  await requireCircleRole(circleId, [
+    'owner',
+    'coordinator',
+    'caregiver',
+    'viewer',
+    'care_recipient',
+  ]);
+
+  const prefs = await getUserNotificationPrefs(user.id);
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6">
       <PageHeader
-        title="Notification Settings"
-        subtitle="Manage transactional email alerts, daily digests, and browser push notifications"
+        title="Notification Preferences"
+        subtitle="Configure email notifications, Web Push subscriptions, quiet hours, and daily evening digests"
       />
-
-      <p className="text-sm text-muted-foreground">
-        Family Care Hub organises information only and does not provide medical advice. Notifications never contain medicine names, diagnoses, or document titles.
-      </p>
-
-      <NotificationSettingsForm
+      <NotificationSettingsView
         circleId={circleId}
-        initialPrefs={initialPrefs}
-        vapidPublicKey={vapidPublicKey}
+        initialPrefs={prefs}
+        vapidPublicKey={clientEnv.NEXT_PUBLIC_VAPID_PUBLIC_KEY}
       />
     </div>
   );

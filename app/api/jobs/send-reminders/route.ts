@@ -1,25 +1,25 @@
-import { NextResponse } from 'next/server';
-import { verifyCronOrQStash } from '@/lib/jobs/auth';
-import { runSendRemindersJob } from '@/lib/jobs/send-reminders';
+import { NextResponse, type NextRequest } from 'next/server';
+import { verifyQStash } from '@/lib/jobs/verify';
+import { processPendingRemindersBatch } from '@/lib/jobs/send-reminders';
 
-export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 /**
- * Scheduled job: Dispatch pending 15-minute reminders
- * Runs every 15 minutes via Upstash QStash
+ * Scheduled job route: Dispatches pending reminders every 15 minutes.
+ * Requires valid Upstash QStash signature.
  */
-export async function POST(request: Request) {
-  const isAuthorized = await verifyCronOrQStash(request);
-  if (!isAuthorized) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export async function POST(request: NextRequest) {
+  const verified = await verifyQStash(request);
+  if (!verified) {
+    return NextResponse.json({ error: 'Unauthorized: Invalid QStash signature' }, { status: 401 });
   }
 
   try {
-    const summary = await runSendRemindersJob();
-    return NextResponse.json({ ok: true, job: 'send-reminders', summary });
+    const result = await processPendingRemindersBatch(500);
+    return NextResponse.json({ ok: true, job: 'send-reminders', result });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Job failure';
-    console.error('Error executing send-reminders job:', err);
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    const message = err instanceof Error ? err.message : 'Job failed';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

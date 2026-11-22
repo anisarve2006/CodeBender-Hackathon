@@ -1,187 +1,184 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
-import { Pill, Calendar, Phone, ArrowLeft, Clock, MapPin, UserCheck } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { formatDateTime } from '@/lib/utils/dates';
+import { Phone, Calendar, Pill, AlertCircle, Clock, MapPin, Heart } from 'lucide-react';
 
-interface CareModeProps {
-  circleId: string;
+export interface CareModeMedication {
+  id: string;
+  name: string;
+  strength: string | null;
+  form: string | null;
+  instructionsAsWritten: string;
+}
+
+export interface CareModeAppointment {
+  id: string;
+  title: string;
+  doctorName: string | null;
+  specialty: string | null;
+  location: string | null;
+  startsAt: string;
+}
+
+interface CareModeViewProps {
   recipientName: string;
-  emergencyContact: {
-    name: string;
-    phone: string;
-    relationship?: string;
-  } | null;
-  medications: Array<{
-    id: string;
-    name: string;
-    strength: string | null;
-    instructionsAsWritten: string;
-    prescribedBy: string | null;
-  }>;
-  nextAppointment: {
-    id: string;
-    title: string;
-    doctorName: string | null;
-    specialty: string | null;
-    location: string | null;
-    startsAt: Date;
-    companionName: string | null;
-  } | null;
+  emergencyPhone: string | null;
+  contactName: string;
+  medications: CareModeMedication[];
+  nextAppointment: CareModeAppointment | null;
 }
 
 export function CareModeView({
-  circleId,
   recipientName,
-  emergencyContact,
+  emergencyPhone,
+  contactName,
   medications,
   nextAppointment,
-}: CareModeProps) {
-  const phoneHref = emergencyContact?.phone
-    ? `tel:${emergencyContact.phone.replace(/[^0-9+]/g, '')}`
+}: CareModeViewProps) {
+  // Format appointment date
+  const apptDate = nextAppointment ? new Date(nextAppointment.startsAt) : null;
+  const formattedApptDate = apptDate
+    ? apptDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      })
+    : null;
+  const formattedApptTime = apptDate
+    ? apptDate.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
     : null;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 pb-32 pt-2">
-      {/* Header with Exit link */}
-      <div className="flex items-center justify-between border-b pb-4">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Care-Recipient Mode
-          </span>
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-            Hello, {recipientName}
-          </h1>
+    <div className="space-y-8 max-w-2xl mx-auto py-4">
+      {/* Recipient Welcome Header */}
+      <div className="text-center space-y-2 border-b pb-6">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-base font-semibold">
+          <Heart className="h-5 w-5 fill-current" />
+          <span>Care Companion View</span>
         </div>
-        <Link
-          href={`/c/${circleId}`}
-          className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Full view
-        </Link>
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+          Hello, {recipientName}
+        </h1>
+        <p className="text-xl text-muted-foreground font-medium">
+          Here is your simple care guide for today.
+        </p>
       </div>
 
-      {/* Card 1: Today's Medicines */}
-      <Card className="border-2 border-primary/30 shadow-lg">
-        <CardHeader className="bg-primary/5 pb-4">
-          <CardTitle className="flex items-center gap-3 text-2xl font-bold text-foreground">
-            <Pill className="h-7 w-7 text-primary" aria-hidden="true" />
-            Today&apos;s Medicines
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6">
-          {medications.length === 0 ? (
-            <p className="text-xl text-muted-foreground">No active medicines scheduled for today.</p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {medications.map((med) => (
-                <li key={med.id} className="py-5 first:pt-0 last:pb-0">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-2xl font-bold text-foreground">{med.name}</span>
-                      {med.strength && (
-                        <span className="rounded-md bg-muted px-2.5 py-1 text-base font-semibold text-muted-foreground">
-                          {med.strength}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="rounded-lg border-2 border-amber-500/40 bg-amber-500/10 p-4">
-                      <span className="block text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400">
-                        Instructions as written on prescription:
-                      </span>
-                      <p className="mt-1 font-mono text-xl font-semibold text-foreground">
-                        {med.instructionsAsWritten}
-                      </p>
-                    </div>
-
-                    {med.prescribedBy && (
-                      <p className="text-base text-muted-foreground">
-                        Prescribed by: <strong className="text-foreground">{med.prescribedBy}</strong>
-                      </p>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Card 2: Next Doctor Visit */}
-      <Card className="border-2 border-primary/30 shadow-lg">
-        <CardHeader className="bg-primary/5 pb-4">
-          <CardTitle className="flex items-center gap-3 text-2xl font-bold text-foreground">
-            <Calendar className="h-7 w-7 text-primary" aria-hidden="true" />
-            Next Doctor Visit
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 pt-6">
-          {nextAppointment ? (
-            <div className="space-y-4 text-xl">
-              <div className="flex items-center gap-3 font-semibold text-primary">
-                <Clock className="h-6 w-6 shrink-0" />
-                <span className="text-2xl font-extrabold">
-                  {formatDateTime(nextAppointment.startsAt)}
-                </span>
-              </div>
-
-              <div>
-                <p className="text-2xl font-bold text-foreground">
-                  {nextAppointment.doctorName || nextAppointment.title}
-                </p>
-                {nextAppointment.specialty && (
-                  <p className="text-lg text-muted-foreground">{nextAppointment.specialty}</p>
-                )}
-              </div>
-
-              {nextAppointment.location && (
-                <div className="flex items-start gap-2.5 text-lg text-muted-foreground">
-                  <MapPin className="mt-1 h-5 w-5 shrink-0 text-primary" />
-                  <span>{nextAppointment.location}</span>
-                </div>
-              )}
-
-              <div className="rounded-lg border bg-muted/40 p-4">
-                <div className="flex items-center gap-3">
-                  <UserCheck className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-                  <div>
-                    <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                      Who is coming with you:
-                    </span>
-                    <p className="text-xl font-bold text-foreground">
-                      {nextAppointment.companionName || 'Family member accompanying'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <p className="text-xl text-muted-foreground">No upcoming doctor appointments scheduled.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Fixed Sticky Emergency Call Button */}
-      {phoneHref && emergencyContact ? (
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 p-4 shadow-2xl backdrop-blur">
-          <div className="mx-auto max-w-3xl">
-            <a
-              href={phoneHref}
-              className="flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-emerald-600 text-2xl font-bold text-white shadow-xl transition-transform active:scale-[0.98] hover:bg-emerald-700"
-            >
-              <Phone className="h-7 w-7 fill-white" />
-              <span>
-                Call Family ({emergencyContact.name}
-                {emergencyContact.relationship ? ` - ${emergencyContact.relationship}` : ''})
-              </span>
-            </a>
+      {/* Primary Emergency Call Button */}
+      {emergencyPhone ? (
+        <a
+          href={`tel:${emergencyPhone}`}
+          className="flex items-center justify-center gap-4 w-full min-h-[72px] rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-2xl shadow-lg transition-transform active:scale-[0.98] cursor-pointer"
+        >
+          <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center">
+            <Phone className="h-7 w-7" />
           </div>
+          <span>Call Family ({contactName})</span>
+        </a>
+      ) : (
+        <div className="rounded-2xl border-2 border-dashed p-6 text-center text-muted-foreground">
+          <p className="text-lg font-medium">No direct phone number listed for emergency family contact.</p>
         </div>
-      ) : null}
+      )}
+
+      {/* Next Upcoming Appointment Section */}
+      <div className="rounded-2xl border-2 border-primary/30 bg-card p-6 sm:p-8 space-y-4 shadow-sm">
+        <div className="flex items-center gap-3 text-primary">
+          <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Calendar className="h-7 w-7" />
+          </div>
+          <h2 className="text-2xl font-bold">Next Doctor Appointment</h2>
+        </div>
+
+        {nextAppointment && formattedApptDate ? (
+          <div className="space-y-3 pt-2 text-xl">
+            <div className="font-extrabold text-2xl text-foreground">
+              {nextAppointment.doctorName
+                ? `Dr. ${nextAppointment.doctorName}`
+                : nextAppointment.title}
+            </div>
+
+            {nextAppointment.specialty && (
+              <p className="text-lg font-medium text-muted-foreground">
+                {nextAppointment.specialty}
+              </p>
+            )}
+
+            <div className="flex items-center gap-3 text-lg font-semibold text-primary pt-1">
+              <Clock className="h-5 w-5 flex-shrink-0" />
+              <span>
+                {formattedApptDate} at {formattedApptTime}
+              </span>
+            </div>
+
+            {nextAppointment.location && (
+              <div className="flex items-center gap-3 text-lg text-muted-foreground">
+                <MapPin className="h-5 w-5 flex-shrink-0" />
+                <span>{nextAppointment.location}</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-xl text-muted-foreground py-2 font-medium">
+            No upcoming appointments scheduled right now.
+          </p>
+        )}
+      </div>
+
+      {/* Today's Medicines Section */}
+      <div className="rounded-2xl border-2 border-border bg-card p-6 sm:p-8 space-y-6 shadow-sm">
+        <div className="flex items-center gap-3 text-foreground">
+          <div className="h-12 w-12 rounded-xl bg-blue-50 dark:bg-blue-950/40 border flex items-center justify-center text-blue-600">
+            <Pill className="h-7 w-7" />
+          </div>
+          <h2 className="text-2xl font-bold">Today&apos;s Medicines</h2>
+        </div>
+
+        {medications.length === 0 ? (
+          <p className="text-xl text-muted-foreground py-2 font-medium">
+            No active prescriptions listed in your care record.
+          </p>
+        ) : (
+          <div className="space-y-6">
+            {medications.map((med) => (
+              <div
+                key={med.id}
+                className="rounded-xl border-2 border-border/80 bg-muted/20 p-5 space-y-3"
+              >
+                <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                  <h3 className="text-2xl font-extrabold text-foreground">{med.name}</h3>
+                  {med.strength && (
+                    <span className="text-lg font-bold text-muted-foreground">
+                      {med.strength} {med.form || ''}
+                    </span>
+                  )}
+                </div>
+
+                {/* Verbatim instructions guardrail */}
+                <div className="pt-1">
+                  <div className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                    How to take:
+                  </div>
+                  <blockquote className="rounded-lg border-l-4 border-primary bg-primary/5 p-4 text-xl font-bold text-foreground italic leading-relaxed">
+                    &ldquo;{med.instructionsAsWritten}&rdquo;
+                  </blockquote>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="rounded-xl bg-muted/40 p-4 flex items-center gap-3 text-sm text-muted-foreground">
+          <AlertCircle className="h-5 w-5 flex-shrink-0 text-amber-600" />
+          <span>
+            Instructions are shown verbatim as written on your prescription. Always confirm questions with your doctor or family.
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

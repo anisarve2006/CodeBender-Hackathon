@@ -1,64 +1,97 @@
 import { z } from 'zod';
 
 /**
- * Medicine schemas (shared by client forms and server actions).
+ * lib/schemas/medications.ts
  * Owner: Member B
- *
- * instructionsAsWritten is stored and shown VERBATIM: no trimming, no normalising, no computed dosage fields.
+ * Zod schemas for medications and prescription records.
+ * Guardrail: Instructions are kept verbatim as written on prescription.
  */
 
-/** Fixed copy shown with every medicine. Shared by the card and the text tests. */
-export const MEDICATION_COPY = {
-  asWrittenLabel: 'As written on prescription',
-  disclaimer:
-    'Family Care Hub organises information only and does not provide medical advice. Always consult a doctor.',
-} as const;
+const nameField = z
+  .string()
+  .trim()
+  .min(2, 'Medicine name is required')
+  .max(100, 'Keep medicine name to 100 characters or fewer.');
 
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use the date format YYYY-MM-DD');
+const instructionsField = z
+  .string()
+  .trim()
+  .min(2, 'Enter instructions as written on prescription')
+  .max(500, 'Keep instructions to 500 characters or fewer.');
 
-const medicationDetailsSchema = z.object({
-  name: z.string().min(2, 'Medicine name is required').max(100),
-  strength: z.string().max(40).optional(),
-  form: z.string().max(40).optional(),
-  instructionsAsWritten: z
-    .string()
-    .min(2, 'Copy the instructions exactly as written on the prescription')
-    .max(500),
-  prescribedBy: z.string().max(80).optional(),
-  startDate: isoDate.optional(),
-  endDate: isoDate.optional(),
+export const createMedicationSchema = z.object({
+  circleId: z.string().uuid(),
+  name: nameField,
+  strength: z.string().trim().max(50).optional(),
+  form: z.string().trim().max(50).optional(),
+  instructionsAsWritten: instructionsField,
+  prescribedBy: z.string().trim().max(100).optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  initialQuantity: z.coerce.number().int().min(0, 'Quantity cannot be negative').default(30),
+  dailyUsage: z.coerce.number().int().min(1, 'Daily usage must be at least 1').default(1),
+  assignedTo: z.string().uuid().nullish(),
 });
 
-/** End date must not be before the start date, when both are given. */
-const dateOrderRule = {
-  check: (data: { startDate?: string; endDate?: string }) =>
-    !data.startDate || !data.endDate || data.endDate >= data.startDate,
-  options: {
-    message: 'End date must be on or after the start date',
-    path: ['endDate'],
-  },
-};
+export const updateMedicationSchema = z.object({
+  circleId: z.string().uuid(),
+  medicationId: z.string().uuid(),
+  name: nameField,
+  strength: z.string().trim().max(50).optional(),
+  form: z.string().trim().max(50).optional(),
+  instructionsAsWritten: instructionsField,
+  prescribedBy: z.string().trim().max(100).optional(),
+  isActive: z.boolean().default(true),
+});
 
-export const createMedicationSchema = medicationDetailsSchema
-  .extend({
-    circleId: z.string().uuid(),
-    initialQuantity: z.coerce.number().int('Enter a whole number').min(0).default(0),
-    dailyUsage: z.coerce.number().int('Enter a whole number').min(1, 'Daily usage must be at least 1').default(1),
-  })
-  .refine(dateOrderRule.check, dateOrderRule.options);
+export const medicationRefSchema = z.object({
+  circleId: z.string().uuid(),
+  medicationId: z.string().uuid(),
+});
 
-/**
- * Partial update of the medicine details only. Quantity and daily usage are changed through the refill actions,
- * so they are deliberately absent here (a .partial() of a defaulted field would otherwise overwrite stored values).
- */
-export const updateMedicationSchema = medicationDetailsSchema
-  .partial()
-  .extend({
-    circleId: z.string().uuid(),
-    id: z.string().uuid(),
-    isActive: z.boolean().optional(),
-  })
-  .refine(dateOrderRule.check, dateOrderRule.options);
+export const recordRefillSchema = z.object({
+  circleId: z.string().uuid(),
+  refillId: z.string().uuid(),
+  quantityAdded: z.coerce.number().int().min(1, 'Quantity added must be at least 1 unit'),
+});
+
+export const markOrderedSchema = z.object({
+  circleId: z.string().uuid(),
+  refillId: z.string().uuid(),
+});
 
 export type CreateMedicationInput = z.infer<typeof createMedicationSchema>;
 export type UpdateMedicationInput = z.infer<typeof updateMedicationSchema>;
+export type RecordRefillInput = z.infer<typeof recordRefillSchema>;
+export type MarkOrderedInput = z.infer<typeof markOrderedSchema>;
+
+/** Form schemas for react-hook-form */
+export const medFormSchema = z.object({
+  name: nameField,
+  strength: z.string().trim().max(50).optional(),
+  form: z.string().trim().max(50).optional(),
+  instructionsAsWritten: instructionsField,
+  prescribedBy: z.string().trim().max(100).optional(),
+  initialQuantity: z.number().int().min(0, 'Quantity cannot be negative'),
+  dailyUsage: z.number().int().min(1, 'Daily usage must be at least 1'),
+  assignedTo: z.string().optional(),
+});
+
+export type MedFormValues = z.infer<typeof medFormSchema>;
+
+export const editMedFormSchema = z.object({
+  name: nameField,
+  strength: z.string().trim().max(50).optional(),
+  form: z.string().trim().max(50).optional(),
+  instructionsAsWritten: instructionsField,
+  prescribedBy: z.string().trim().max(100).optional(),
+  isActive: z.boolean(),
+});
+
+export type EditMedFormValues = z.infer<typeof editMedFormSchema>;
+
+export const refillFormSchema = z.object({
+  quantityAdded: z.number().int().min(1, 'Quantity added must be at least 1 unit'),
+});
+
+export type RefillFormValues = z.infer<typeof refillFormSchema>;

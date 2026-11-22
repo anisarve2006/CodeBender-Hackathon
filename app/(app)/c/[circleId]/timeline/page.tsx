@@ -1,29 +1,32 @@
+import * as React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { requireUser } from '@/lib/auth/session';
 import { requireCircleRole } from '@/lib/data/circle-context';
-import { TimelineFeed } from '@/components/features/timeline/timeline-feed';
+import { getCircleTimelineFeed } from '@/lib/data/timeline';
+import { TimelineView } from '@/components/features/timeline/timeline-view';
 
-export default async function TimelinePage({
-  params,
-}: {
+interface TimelinePageProps {
   params: Promise<{ circleId: string }>;
-}) {
+}
+
+export default async function TimelinePage({ params }: TimelinePageProps) {
   const { circleId } = await params;
-  const [, viewer] = await Promise.all([requireCircleRole(circleId), requireUser()]);
+  const ctx = await requireCircleRole(circleId, [
+    'owner',
+    'coordinator',
+    'caregiver',
+    'viewer',
+    'care_recipient',
+  ]);
+
+  const initialFeed = await getCircleTimelineFeed(ctx, { limit: 20 });
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Care Timeline"
-        subtitle="Chronological feed of appointments, prescriptions, reports, and updates"
+        title="Circle Timeline"
+        subtitle="Chronological feed of appointments, prescriptions, diagnostic reports, and family updates"
       />
-
-      <p className="text-sm text-muted-foreground">
-        Family Care Hub organises information only and does not provide medical advice. Always
-        consult a doctor.
-      </p>
-
-      <TimelineFeed circleId={circleId} timezone={viewer.timezone} />
+      <TimelineView circleId={circleId} initialPage={initialFeed} />
     </div>
   );
 }

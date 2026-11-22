@@ -1,55 +1,51 @@
 'use server';
 
-import { requireVerifiedUser } from '@/lib/auth/session';
+import { requireUser } from '@/lib/auth/session';
 import {
-  updateUserNotificationPreferences,
+  updateUserNotificationPrefs,
   savePushSubscription,
-  removePushSubscription,
-  type NotificationPreferences,
-} from '@/lib/jobs/user-prefs';
-import type { ActionResult } from '@/lib/types/app';
+  deletePushSubscription,
+  type UserNotificationPrefs,
+} from '@/lib/data/notifications';
+import { revalidatePath } from 'next/cache';
 
-export type { NotificationPreferences };
-
-export async function updateNotificationPreferencesAction(
-  prefs: NotificationPreferences,
-): Promise<ActionResult<NotificationPreferences>> {
+export async function updateNotificationPrefsAction(
+  circleId: string,
+  prefs: UserNotificationPrefs,
+) {
   try {
-    const user = await requireVerifiedUser();
-    await updateUserNotificationPreferences(user.id, prefs);
-    return { ok: true, data: prefs };
+    const user = await requireUser();
+    await updateUserNotificationPrefs(user.id, prefs);
+    revalidatePath(`/c/${circleId}/settings/notifications`);
+    return { ok: true };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to update preferences';
-    console.error('Failed to update notification preferences:', err);
     return { ok: false, error: message };
   }
 }
 
-export async function savePushSubscriptionAction(subscription: {
+export async function savePushSubscriptionAction(sub: {
   endpoint: string;
-  keys: { p256dh: string; auth: string };
-}): Promise<ActionResult<void>> {
+  p256dh: string;
+  auth: string;
+}) {
   try {
-    const user = await requireVerifiedUser();
-    await savePushSubscription(user.id, subscription);
-    return { ok: true, data: undefined };
+    const user = await requireUser();
+    await savePushSubscription(user.id, sub);
+    return { ok: true };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to save subscription';
-    console.error('Failed to save push subscription:', err);
     return { ok: false, error: message };
   }
 }
 
-export async function removePushSubscriptionAction(
-  endpoint: string,
-): Promise<ActionResult<void>> {
+export async function deletePushSubscriptionAction(endpoint: string) {
   try {
-    const user = await requireVerifiedUser();
-    await removePushSubscription(user.id, endpoint);
-    return { ok: true, data: undefined };
+    const user = await requireUser();
+    await deletePushSubscription(user.id, endpoint);
+    return { ok: true };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to remove subscription';
-    console.error('Failed to remove push subscription:', err);
+    const message = err instanceof Error ? err.message : 'Failed to delete subscription';
     return { ok: false, error: message };
   }
 }

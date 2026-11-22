@@ -1,79 +1,127 @@
-import { NextResponse } from 'next/server';
-import { and, eq, isNull } from 'drizzle-orm';
+import { NextRequest, NextResponse } from 'next/server';
+import { validateSession } from '@/lib/auth/session';
 import { withUserTx } from '@/db/client';
 import * as schema from '@/db/schema';
-import { validateSession } from '@/lib/auth/session';
-import { buildAppointmentIcs } from '@/lib/utils/ics';
+import { and, eq, isNull } from 'drizzle-orm';
 
 /**
- * iCalendar ICS feed route (RFC 5545)
+ * iCalendar (.ics) download route
  * Owner: Member B
- * The ICS document itself is built by the pure helper in lib/utils/ics.ts.
+ * Generates an RFC 5545 calendar event file after checking circle membership.
  */
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function formatIcsDate(date: Date): string {
+  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+}
 
-function notFound() {
-  return NextResponse.json({ error: 'Appointment not found.' }, { status: 404 });
+function escapeIcsText(text: string): string {
+  return text
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\n/g, '\\n');
+}
+
+/**
+ * Folds lines to at most 75 octets per RFC 5545 Section 3.1.
+ */
+function foldIcsLine(line: string): string {
+  if (line.length <= 75) return line;
+  const chunks: string[] = [];
+  let remaining = line;
+  while (remaining.length > 75) {
+    chunks.push(remaining.slice(0, 75));
+    remaining = ' ' + remaining.slice(75);
+  }
+  if (remaining.length > 0) chunks.push(remaining);
+  return chunks.join('\r\n');
 }
 
 export async function GET(
-  _request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ appointmentId: string }> },
 ) {
   const session = await validateSession();
   if (!session) {
-    return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    return new NextResponse('Unauthorized', { status: 401 });
   }
 
   const { appointmentId } = await params;
-  if (!UUID_RE.test(appointmentId)) {
-    return notFound();
+
+  try {
+    const data = await withUserTx(session.user.id, async (tx) => {
+      const [appt] = await tx
+        .select()
+        .from(schema.appointments)
+        .where(
+          and(
+            eq(schema.appointments.id, appointmentId),
+            isNull(schema.appointments.deletedAt),
+          ),
+        )
+        .limit(1);
+
+      if (!appt) return null;
+
+      const [recipient] = await tx
+        .select({ fullName: schema.careRecipients.fullName })
+        .from(schema.careRecipients)
+        .where(eq(schema.careRecipients.circleId, appt.circleId))
+        .limit(1);
+
+      return { appt, recipientName: recipient?.fullName || 'Care Recipient' };
+    });
+
+    if (!data) {
+      return new NextResponse('Appointment not found or access denied', { status: 404 });
+    }
+
+    const { appt, recipientName } = data;
+    const summary = `Doctor appointment \u2013 ${recipientName}`;
+    const descParts = [
+      `Appointment: ${appt.title}`,
+      appt.doctorName ? `Doctor: ${appt.doctorName}` : null,
+      appt.specialty ? `Specialty: ${appt.specialty}` : null,
+      appt.notes ? `Notes: ${appt.notes}` : null,
+    ].filter(Boolean);
+
+    const description = escapeIcsText(descParts.join('\n'));
+    const location = escapeIcsText(appt.location || '');
+
+    const icsLines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Family Care Hub//Doctor Appointments//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      `UID:${appt.id}@familycarehub.app`,
+      `DTSTAMP:${formatIcsDate(new Date())}`,
+      `DTSTART:${formatIcsDate(appt.startsAt)}`,
+      `DTEND:${formatIcsDate(appt.endsAt)}`,
+      `SUMMARY:${escapeIcsText(summary)}`,
+      `DESCRIPTION:${description}`,
+      location ? `LOCATION:${location}` : null,
+      'STATUS:CONFIRMED',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ];
+
+    const icsContent = icsLines
+      .filter((line): line is string => typeof line === 'string' && line.length > 0)
+      .map(foldIcsLine)
+      .join('\r\n') + '\r\n';
+
+    return new NextResponse(icsContent, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/calendar; charset=utf-8',
+        'Content-Disposition': `attachment; filename="appointment-${appt.id.slice(0, 8)}.ics"`,
+        'Cache-Control': 'no-store',
+      },
+    });
+  } catch (err) {
+    console.error('Failed to generate calendar file:', err);
+    return new NextResponse('Internal server error', { status: 500 });
   }
-
-  const userId = session.user.id;
-
-  // Membership is enforced here: the appointment is only returned when the caller is a member of its circle.
-  const rows = await withUserTx(userId, (tx) =>
-    tx
-      .select({
-        id: schema.appointments.id,
-        startsAt: schema.appointments.startsAt,
-        endsAt: schema.appointments.endsAt,
-        location: schema.appointments.location,
-        doctorName: schema.appointments.doctorName,
-        specialty: schema.appointments.specialty,
-        recipientName: schema.careRecipients.fullName,
-      })
-      .from(schema.appointments)
-      .innerJoin(
-        schema.circleMembers,
-        and(
-          eq(schema.circleMembers.circleId, schema.appointments.circleId),
-          eq(schema.circleMembers.userId, userId),
-        ),
-      )
-      .leftJoin(
-        schema.careRecipients,
-        eq(schema.careRecipients.circleId, schema.appointments.circleId),
-      )
-      .where(and(eq(schema.appointments.id, appointmentId), isNull(schema.appointments.deletedAt)))
-      .limit(1),
-  );
-
-  const appointment = rows[0];
-  if (!appointment) {
-    return notFound();
-  }
-
-  const body = buildAppointmentIcs(appointment, new Date());
-
-  return new NextResponse(body, {
-    status: 200,
-    headers: {
-      'Content-Type': 'text/calendar; charset=utf-8',
-      'Content-Disposition': 'attachment; filename="appointment.ics"',
-      'Cache-Control': 'private, no-store',
-    },
-  });
 }

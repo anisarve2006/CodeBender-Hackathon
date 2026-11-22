@@ -10,9 +10,8 @@ export const docKindSchema = z.enum([
   'other',
 ]);
 
-export const sensitivitySchema = z.enum(['normal', 'restricted']);
+export const sensitivityLevelSchema = z.enum(['normal', 'restricted']);
 
-/** Original upload contract, kept for existing references. */
 export const uploadDocumentSchema = z.object({
   circleId: z.string().uuid(),
   kind: docKindSchema,
@@ -22,42 +21,37 @@ export const uploadDocumentSchema = z.object({
   sizeBytes: z.number().int().max(10485760, 'File must not exceed 10 MB'),
   checksumSha256: z.string().min(64).max(64),
   reportDate: z.string().optional(),
-  sensitivity: sensitivitySchema.default('normal'),
+  sensitivity: sensitivityLevelSchema.default('normal'),
 });
 
-/** Form fields for uploading a document (the file itself is validated separately). */
-export const createDocumentSchema = z.object({
-  circleId: z.string().uuid(),
-  title: z.string().trim().min(2, 'Document title is required').max(120),
+export const documentUploadFormSchema = z.object({
+  title: z.string().min(2, 'Document title must be at least 2 characters').max(120),
   kind: docKindSchema,
-  reportDate: z.union([z.literal(''), z.iso.date('Enter a valid date')]).optional(),
-  sensitivity: sensitivitySchema.default('normal'),
+  reportDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Report date must be YYYY-MM-DD'),
+  sensitivity: sensitivityLevelSchema,
 });
 
-export const documentFilterSchema = z.object({
-  kind: docKindSchema.optional(),
-  search: z.string().trim().max(120).optional(),
+export const grantDocumentAccessSchema = z.object({
+  circleId: z.string().uuid('Invalid circle ID'),
+  documentId: z.string().uuid('Invalid document ID'),
+  targetUserId: z.string().uuid('Invalid user ID'),
 });
 
-export const grantRestrictedAccessSchema = z.object({
-  circleId: z.string().uuid(),
-  documentId: z.string().uuid(),
-  userIds: z.array(z.string().uuid()).min(1, 'Choose at least one person').max(20),
+export const revokeDocumentAccessSchema = z.object({
+  circleId: z.string().uuid('Invalid circle ID'),
+  documentId: z.string().uuid('Invalid document ID'),
+  targetUserId: z.string().uuid('Invalid user ID'),
 });
 
-export const revokeRestrictedAccessSchema = z.object({
-  circleId: z.string().uuid(),
-  documentId: z.string().uuid(),
-  userId: z.string().uuid(),
+export const deleteDocumentSchema = z.object({
+  circleId: z.string().uuid('Invalid circle ID'),
+  documentId: z.string().uuid('Invalid document ID'),
 });
 
-export const documentViewersSchema = z.object({
-  circleId: z.string().uuid(),
-  documentId: z.string().uuid(),
-});
-
+export type DocKind = z.infer<typeof docKindSchema>;
+export type SensitivityLevel = z.infer<typeof sensitivityLevelSchema>;
 export type UploadDocumentInput = z.infer<typeof uploadDocumentSchema>;
-export type CreateDocumentInput = z.infer<typeof createDocumentSchema>;
-export type DocumentFilterInput = z.infer<typeof documentFilterSchema>;
-export type GrantRestrictedAccessInput = z.infer<typeof grantRestrictedAccessSchema>;
-export type RevokeRestrictedAccessInput = z.infer<typeof revokeRestrictedAccessSchema>;
+export type DocumentUploadFormValues = z.infer<typeof documentUploadFormSchema>;
+export type GrantDocumentAccessInput = z.infer<typeof grantDocumentAccessSchema>;
+export type RevokeDocumentAccessInput = z.infer<typeof revokeDocumentAccessSchema>;
+export type DeleteDocumentInput = z.infer<typeof deleteDocumentSchema>;
