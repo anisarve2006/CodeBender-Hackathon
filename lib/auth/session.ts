@@ -9,7 +9,8 @@ import * as schema from '@/db/schema';
 import { generateToken, hashToken } from './crypto';
 import { redis } from '@/lib/utils/redis';
 
-export const SESSION_COOKIE_NAME = '__Host-fch_session';
+export const SESSION_COOKIE_NAME =
+  process.env.NODE_ENV === 'production' ? '__Host-fch_session' : 'fch_session';
 const SESSION_TTL_DAYS = 30;
 const SESSION_EXTEND_THRESHOLD_DAYS = 15;
 

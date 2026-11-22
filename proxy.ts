@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const SESSION_COOKIE_NAME = '__Host-fch_session';
+const SESSION_COOKIE_NAME =
+  process.env.NODE_ENV === 'production' ? '__Host-fch_session' : 'fch_session';
 
 export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
