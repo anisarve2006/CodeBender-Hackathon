@@ -164,7 +164,7 @@ export function QuickAddDocumentDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => {
+      onOpenChange={(next: boolean) => {
         if (!uploading) {
           if (!next) handleReset();
           onOpenChange(next);
