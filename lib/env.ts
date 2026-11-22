@@ -7,12 +7,9 @@ const serverSchema = z.object({
   DATABASE_URL_UNPOOLED: z.string().min(1, 'DATABASE_URL_UNPOOLED is required'),
   UPSTASH_REDIS_REST_URL: z.string().optional().default(''),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional().default(''),
-  QSTASH_TOKEN: z.string().optional().default(''),
-  QSTASH_CURRENT_SIGNING_KEY: z.string().optional().default(''),
-  QSTASH_NEXT_SIGNING_KEY: z.string().optional().default(''),
+  CRON_SECRET: z.string().optional().default(''),
   BLOB_READ_WRITE_TOKEN: z.string().optional().default(''),
-  RESEND_API_KEY: z.string().optional().default(''),
-  SMTP_HOST: z.string().optional().default(''),
+  SMTP_HOST: z.string().optional().default('smtp.gmail.com'),
   SMTP_PORT: z.string().optional().default('587'),
   SMTP_SECURE: z
     .string()
@@ -21,7 +18,7 @@ const serverSchema = z.object({
     .default(false),
   SMTP_USER: z.string().optional().default(''),
   SMTP_PASS: z.string().optional().default(''),
-  EMAIL_FROM: z.string().default('Kinly <onboarding@resend.dev>'),
+  EMAIL_FROM: z.string().default('Family Care Hub <noreply@familycarehub.app>'),
   AUTH_ENCRYPTION_KEY: z.string().optional().default(''),
   VAPID_PRIVATE_KEY: z.string().optional().default(''),
   VAPID_SUBJECT: z.string().default('mailto:team@example.com'),

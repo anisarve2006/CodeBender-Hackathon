@@ -1,22 +1,24 @@
 import { describe, it, expect } from 'vitest';
-import { verifyQStash } from '@/lib/jobs/verify';
+import { verifyCronJob, verifyQStash } from '@/lib/jobs/verify';
 import { createZipArchive } from '@/lib/utils/zip';
+import { sendEmail, getEmailTransporter } from '@/lib/notifications/email';
 
-describe('B4 & B5: Jobs, QStash Verification & Platform Security', () => {
-  it('rejects unsigned HTTP requests with missing signature', async () => {
+describe('B4 & B5: Jobs, Cron Authorization, NodeMailer & Platform Security', () => {
+  it('rejects unsigned HTTP requests with missing authorization', async () => {
     const request = new Request('http://localhost:3000/api/jobs/send-reminders', {
       method: 'POST',
       body: JSON.stringify({ test: true }),
     });
 
-    const isVerified = await verifyQStash(request);
+    const isVerified = await verifyCronJob(request);
     expect(isVerified).toBe(false);
   });
 
-  it('rejects forged or fake signatures', async () => {
+  it('rejects forged or fake signatures and tokens', async () => {
     const request = new Request('http://localhost:3000/api/jobs/send-reminders', {
       method: 'POST',
       headers: {
+        authorization: 'Bearer forged-fake-token-12345',
         'upstash-signature': 'fake-forged-signature-string-12345',
       },
       body: JSON.stringify({ test: true }),
@@ -24,6 +26,33 @@ describe('B4 & B5: Jobs, QStash Verification & Platform Security', () => {
 
     const isVerified = await verifyQStash(request);
     expect(isVerified).toBe(false);
+  });
+
+  it('authorizes valid cron requests with bearer token or header', async () => {
+    const request = new Request('http://localhost:3000/api/jobs/send-reminders', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer mock-cron-secret',
+      },
+      body: JSON.stringify({ test: true }),
+    });
+
+    const isVerified = await verifyCronJob(request);
+    expect(isVerified).toBe(true);
+  });
+
+  it('dispatches emails using Nodemailer transporter without error', async () => {
+    const transporter = getEmailTransporter();
+    expect(transporter).toBeDefined();
+
+    await expect(
+      sendEmail({
+        to: 'family-member@example.com',
+        subject: 'Care Update – Kamala Care',
+        html: '<p>A new care update has been posted to your circle.</p>',
+        text: 'A new care update has been posted to your circle.',
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it('generates valid, standard DEFLATE-compressed ZIP archives without external dependencies', () => {

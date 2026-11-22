@@ -1,43 +1,48 @@
-import { Receiver } from '@upstash/qstash';
-
-const currentSigningKey = process.env.QSTASH_CURRENT_SIGNING_KEY || '';
-const nextSigningKey = process.env.QSTASH_NEXT_SIGNING_KEY || '';
-
-let receiver: Receiver | null = null;
-if (currentSigningKey && nextSigningKey) {
-  receiver = new Receiver({
-    currentSigningKey,
-    nextSigningKey,
-  });
-}
+import 'server-only';
+import { serverEnv } from '@/lib/env';
 
 /**
- * Verifies Upstash QStash request signatures using current and next keys.
- * Rejects requests without valid signatures.
+ * Verifies cron / scheduled background job authorization.
+ * Supports:
+ * - Authorization: Bearer <CRON_SECRET>
+ * - x-cron-secret: <CRON_SECRET>
+ * - Legacy header fallback for tests: upstash-signature: mock-qstash-signature
  */
-export async function verifyQStash(req: Request): Promise<boolean> {
-  const signature = req.headers.get('upstash-signature');
-  if (!signature) {
-    return false;
-  }
+export async function verifyCronJob(req: Request): Promise<boolean> {
+  const authHeader = req.headers.get('authorization');
+  const cronSecretHeader = req.headers.get('x-cron-secret');
+  const legacySignature = req.headers.get('upstash-signature');
 
-  // Allow bypass with explicit mock signature in testing / development when keys are not configured
-  if (!receiver) {
-    if (process.env.NODE_ENV !== 'production' && signature === 'mock-qstash-signature') {
+  const configuredSecret = serverEnv.CRON_SECRET;
+
+  // 1. If CRON_SECRET is configured, check Bearer token or custom header
+  if (configuredSecret) {
+    if (authHeader && authHeader === `Bearer ${configuredSecret}`) {
+      return true;
+    }
+    if (cronSecretHeader && cronSecretHeader === configuredSecret) {
       return true;
     }
     return false;
   }
 
-  try {
-    const body = await req.clone().text();
-    const url = req.url;
-    return await receiver.verify({
-      signature,
-      body,
-      url,
-    });
-  } catch {
+  // 2. In non-production testing / dev environment:
+  if (process.env.NODE_ENV !== 'production' || !!process.env.VITEST) {
+    if (
+      authHeader === 'Bearer mock-cron-secret' ||
+      cronSecretHeader === 'mock-cron-secret' ||
+      legacySignature === 'mock-qstash-signature'
+    ) {
+      return true;
+    }
+    // Reject unsigned/unauthorized requests
     return false;
   }
+
+  return false;
 }
+
+/**
+ * Backward compatibility alias for existing route handlers.
+ */
+export const verifyQStash = verifyCronJob;

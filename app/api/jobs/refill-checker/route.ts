@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { verifyQStash } from '@/lib/jobs/verify';
+import { verifyCronJob } from '@/lib/jobs/verify';
 import { runRefillChecker } from '@/lib/jobs/refill-checker';
 
 export const runtime = 'nodejs';
@@ -7,12 +7,12 @@ export const maxDuration = 60;
 
 /**
  * Scheduled job route: Daily refill status evaluation & task creation (07:00 IST).
- * Requires valid Upstash QStash signature.
+ * Protected via CRON_SECRET authorization header.
  */
 export async function POST(request: NextRequest) {
-  const verified = await verifyQStash(request);
+  const verified = await verifyCronJob(request);
   if (!verified) {
-    return NextResponse.json({ error: 'Unauthorized: Invalid QStash signature' }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized: Invalid cron authorization' }, { status: 401 });
   }
 
   try {

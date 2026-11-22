@@ -1,85 +1,106 @@
 import 'server-only';
-import { Resend } from 'resend';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { serverEnv } from '@/lib/env';
-
-const resend = serverEnv.RESEND_API_KEY ? new Resend(serverEnv.RESEND_API_KEY) : null;
-
-let smtpTransporter: Transporter | null = null;
-if (!resend && serverEnv.SMTP_USER && serverEnv.SMTP_PASS) {
-  const isGmail = !serverEnv.SMTP_HOST || serverEnv.SMTP_HOST.includes('gmail.com');
-  if (isGmail) {
-    smtpTransporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: serverEnv.SMTP_USER,
-        pass: serverEnv.SMTP_PASS,
-      },
-    });
-  } else {
-    smtpTransporter = nodemailer.createTransport({
-      host: serverEnv.SMTP_HOST,
-      port: Number(serverEnv.SMTP_PORT) || 587,
-      secure: Boolean(serverEnv.SMTP_SECURE),
-      auth: {
-        user: serverEnv.SMTP_USER,
-        pass: serverEnv.SMTP_PASS,
-      },
-    });
-  }
-}
 
 export type SendEmailOptions = {
   to: string;
   subject: string;
   html: string;
   text?: string;
+  attachments?: Array<{
+    filename: string;
+    content: Buffer | string;
+    contentType?: string;
+  }>;
 };
 
-export async function sendEmail({ to, subject, html, text }: SendEmailOptions): Promise<void> {
-  const fromAddress =
-    serverEnv.SMTP_USER && !resend
-      ? `Kinly <${serverEnv.SMTP_USER}>`
-      : serverEnv.EMAIL_FROM;
+let cachedTransporter: Transporter | null = null;
 
-  // 1. Send via Resend if API key is provided
-  if (resend) {
-    try {
-      await resend.emails.send({
-        from: serverEnv.EMAIL_FROM,
-        to,
-        subject,
-        html,
-        text,
-      });
-      return;
-    } catch (err) {
-      console.error('Failed to dispatch transactional email via Resend:', err);
-    }
+/**
+ * Returns a configured Nodemailer Transporter instance.
+ * Supports Gmail SMTP with App Passwords, custom SMTP servers, or a JSON mock transport.
+ */
+export function getEmailTransporter(): Transporter {
+  if (cachedTransporter) {
+    return cachedTransporter;
   }
 
-  // 2. Send via Nodemailer SMTP if configured
-  if (smtpTransporter) {
+  // 1. If SMTP credentials are provided, use standard SMTP or Gmail service
+  if (serverEnv.SMTP_USER && serverEnv.SMTP_PASS) {
+    const isGmail =
+      !serverEnv.SMTP_HOST ||
+      serverEnv.SMTP_HOST.toLowerCase().includes('gmail.com');
+
+    if (isGmail) {
+      cachedTransporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: serverEnv.SMTP_USER,
+          pass: serverEnv.SMTP_PASS,
+        },
+      });
+    } else {
+      cachedTransporter = nodemailer.createTransport({
+        host: serverEnv.SMTP_HOST,
+        port: Number(serverEnv.SMTP_PORT) || 587,
+        secure: Boolean(serverEnv.SMTP_SECURE),
+        auth: {
+          user: serverEnv.SMTP_USER,
+          pass: serverEnv.SMTP_PASS,
+        },
+      });
+    }
+    return cachedTransporter;
+  }
+
+  // 2. Fallback: local development / test transport
+  cachedTransporter = nodemailer.createTransport({
+    jsonTransport: true,
+  });
+  return cachedTransporter;
+}
+
+/**
+ * Dispatches a transactional email using Nodemailer.
+ */
+export async function sendEmail({
+  to,
+  subject,
+  html,
+  text,
+  attachments,
+}: SendEmailOptions): Promise<void> {
+  const fromAddress = serverEnv.SMTP_USER
+    ? `Family Care Hub <${serverEnv.SMTP_USER}>`
+    : serverEnv.EMAIL_FROM;
+
+  const plainText = text || html.replace(/<[^>]*>?/gm, '');
+
+  if (serverEnv.SMTP_USER && serverEnv.SMTP_PASS) {
     try {
-      await smtpTransporter.sendMail({
+      const transporter = getEmailTransporter();
+      const info = await transporter.sendMail({
         from: fromAddress,
         to,
         subject,
         html,
-        text: text || html.replace(/<[^>]*>?/gm, ''),
+        text: plainText,
+        attachments,
       });
+      console.log(`[Email Sent via Nodemailer] ID: ${info.messageId} to ${to}`);
       return;
     } catch (err) {
-      console.error('Failed to dispatch transactional email via Nodemailer SMTP:', err);
+      console.error('Failed to dispatch transactional email via Nodemailer:', err);
+      throw err;
     }
   }
 
-  // 3. Fallback: local development console simulator
-  console.log('--- [DEV EMAIL SIMULATOR] ---');
+  // Fallback: development simulation
+  console.log('--- [DEV EMAIL SIMULATOR (NodeMailer)] ---');
   console.log(`From: ${fromAddress}`);
   console.log(`To: ${to}`);
   console.log(`Subject: ${subject}`);
-  console.log(`Body (text): ${text || html.replace(/<[^>]*>?/gm, '')}`);
-  console.log('-----------------------------');
+  console.log(`Body (text): ${plainText}`);
+  console.log('-----------------------------------------');
 }
