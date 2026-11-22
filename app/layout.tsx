@@ -16,10 +16,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Kinly',
   description: 'Kinly — Shared care coordination, appointments, medications, and tasks for your loved ones.',
-  icons: {
-    icon: '/logo.png',
-    apple: '/logo.png',
-  },
 };
 
 export const viewport: Viewport = {

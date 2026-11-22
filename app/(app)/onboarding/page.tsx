@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { requireUser } from '@/lib/auth/session';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { buttonVariants } from '@/components/ui/button';
@@ -35,20 +34,6 @@ export default async function OnboardingPage() {
 
   return (
     <div className="container max-w-2xl py-12 px-4 space-y-6">
-      <div className="flex items-center gap-3">
-        <Image
-          src="/logo.png"
-          alt="Kinly Logo"
-          width={40}
-          height={40}
-          className="h-10 w-10 rounded-xl object-contain shadow-xs border border-border/40"
-          priority
-        />
-        <div>
-          <span className="font-bold text-lg leading-tight tracking-tight block">Kinly</span>
-          <span className="text-xs text-muted-foreground leading-none">Family Care Hub</span>
-        </div>
-      </div>
       <PageHeader
         title="Set up your care circle"
         subtitle="Three quick steps. You can change everything later."

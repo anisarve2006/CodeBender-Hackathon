@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,14 +45,9 @@ export default function SignupPage() {
     <div className="flex min-h-screen items-center justify-center p-4 bg-muted/30">
       <div className="w-full max-w-md space-y-4">
         <div className="text-center space-y-1">
-          <Image
-            src="/logo.png"
-            alt="Kinly Logo"
-            width={56}
-            height={56}
-            className="inline-block h-14 w-14 rounded-2xl object-contain mb-2 shadow-xs border border-border/40"
-            priority
-          />
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-xl mb-2">
+            K
+          </div>
           <h1 className="text-2xl font-bold tracking-tight">Kinly</h1>
           <p className="text-sm text-muted-foreground">Start organizing your family care circle</p>
         </div>
