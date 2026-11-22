@@ -8,6 +8,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: [],
+    exclude: ['**/tests/e2e/**', '**/node_modules/**', '**/dist/**'],
     alias: {
       '@': path.resolve(__dirname, './'),
       'server-only': path.resolve(__dirname, './tests/server-only-mock.ts'),

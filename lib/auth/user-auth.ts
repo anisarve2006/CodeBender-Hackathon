@@ -104,11 +104,19 @@ export async function signinUser(input: SigninInput, ip: string, userAgent?: str
     throw new Error('Too many attempts for this account. Please try again in 15 minutes.');
   }
 
-  const users = await adminDb
-    .select()
-    .from(schema.users)
-    .where(eq(schema.users.email, email))
-    .limit(1);
+  let users;
+  try {
+    users = await adminDb
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, email))
+      .limit(1);
+  } catch (err) {
+    console.error('Database connection failed in signinUser:', err);
+    throw new Error(
+      'Unable to connect to the database. Please verify your DATABASE_URL and DATABASE_URL_OWNER credentials in .env.local.',
+    );
+  }
 
   if (users.length === 0) {
     await verifyPassword(DUMMY_HASH, input.password);
@@ -165,11 +173,19 @@ export async function forgotPasswordUser(input: ForgotPasswordInput, ip: string)
   await resetLimiter.limit(ip);
   const email = input.email.toLowerCase().trim();
 
-  const users = await adminDb
-    .select()
-    .from(schema.users)
-    .where(eq(schema.users.email, email))
-    .limit(1);
+  let users;
+  try {
+    users = await adminDb
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, email))
+      .limit(1);
+  } catch (err) {
+    console.error('Database connection failed in signinUser:', err);
+    throw new Error(
+      'Unable to connect to the database. Please verify your DATABASE_URL and DATABASE_URL_OWNER credentials in .env.local.',
+    );
+  }
 
   if (users.length > 0) {
     const user = users[0];
