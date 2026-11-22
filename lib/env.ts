@@ -12,6 +12,15 @@ const serverSchema = z.object({
   QSTASH_NEXT_SIGNING_KEY: z.string().optional().default(''),
   BLOB_READ_WRITE_TOKEN: z.string().optional().default(''),
   RESEND_API_KEY: z.string().optional().default(''),
+  SMTP_HOST: z.string().optional().default(''),
+  SMTP_PORT: z.string().optional().default('587'),
+  SMTP_SECURE: z
+    .string()
+    .optional()
+    .transform((val) => val === 'true')
+    .default(false),
+  SMTP_USER: z.string().optional().default(''),
+  SMTP_PASS: z.string().optional().default(''),
   EMAIL_FROM: z.string().default('Family Care Hub <onboarding@resend.dev>'),
   AUTH_ENCRYPTION_KEY: z.string().optional().default(''),
   VAPID_PRIVATE_KEY: z.string().optional().default(''),
