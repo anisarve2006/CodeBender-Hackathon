@@ -32,12 +32,14 @@ export function getEmailTransporter(): Transporter {
       !serverEnv.SMTP_HOST ||
       serverEnv.SMTP_HOST.toLowerCase().includes('gmail.com');
 
+    const cleanPass = serverEnv.SMTP_PASS.replace(/\s+/g, '');
+
     if (isGmail) {
       cachedTransporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
           user: serverEnv.SMTP_USER,
-          pass: serverEnv.SMTP_PASS,
+          pass: cleanPass,
         },
       });
     } else {
@@ -47,7 +49,7 @@ export function getEmailTransporter(): Transporter {
         secure: Boolean(serverEnv.SMTP_SECURE),
         auth: {
           user: serverEnv.SMTP_USER,
-          pass: serverEnv.SMTP_PASS,
+          pass: cleanPass,
         },
       });
     }
