@@ -2,63 +2,76 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
+    /* Base Canvas & Ink: Morning mist canvas with deep obsidian pine ink */
+    --background: 180 14% 98%;
+    --foreground: 171 28% 9%;
+
+    /* Card Surfaces: Clean, elevated white with crisp boundary */
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 171 28% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
-    --radius: 0.5rem;
+    --popover-foreground: 171 28% 9%;
+
+    /* Primary Anchor: Deep Spruce / Elder Teal */
+    --primary: 174 72% 21%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary & Muted: Soft sea mist sage wash */
+    --secondary: 168 18% 94%;
+    --secondary-foreground: 171 28% 9%;
+    --muted: 168 18% 94%;
+    --muted-foreground: 171 14% 38%;
+
+    /* Accent & Borders */
+    --accent: 168 18% 92%;
+    --accent-foreground: 171 28% 9%;
+    --border: 168 14% 88%;
+    --input: 168 14% 88%;
+    --ring: 174 72% 21%;
+    --radius: 0.75rem;
+
+    --destructive: 350 89% 45%;
+    --destructive-foreground: 0 0% 100%;
 
     /* Semantic traffic-light status tokens (WCAG AA accessible) */
-    --status-ok: 142 71% 45%;
-    --status-ok-foreground: 144 61% 20%;
-    --status-attention: 38 92% 50%;
-    --status-attention-foreground: 32 81% 29%;
-    --status-overdue: 0 84% 60%;
-    --status-overdue-foreground: 0 74% 25%;
+    --status-ok: 158 64% 36%;
+    --status-ok-foreground: 158 80% 14%;
+    --status-attention: 38 92% 48%;
+    --status-attention-foreground: 32 81% 22%;
+    --status-overdue: 347 77% 49%;
+    --status-overdue-foreground: 347 85% 18%;
   }
 
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 217 33% 17%;
-    --card-foreground: 210 40% 98%;
-    --popover: 217 33% 17%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 22%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 22%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 22%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 25%;
-    --input: 217 33% 25%;
-    --ring: 217 91% 60%;
+    --background: 171 30% 7%;
+    --foreground: 168 20% 95%;
+    --card: 171 26% 11%;
+    --card-foreground: 168 20% 95%;
+    --popover: 171 26% 11%;
+    --popover-foreground: 168 20% 95%;
 
-    --status-ok: 142 69% 58%;
-    --status-ok-foreground: 144 80% 90%;
-    --status-attention: 38 92% 60%;
-    --status-attention-foreground: 35 90% 92%;
-    --status-overdue: 0 84% 65%;
-    --status-overdue-foreground: 0 85% 95%;
+    --primary: 174 65% 42%;
+    --primary-foreground: 171 30% 7%;
+    --secondary: 171 20% 16%;
+    --secondary-foreground: 168 20% 95%;
+    --muted: 171 20% 16%;
+    --muted-foreground: 171 14% 65%;
+
+    --accent: 171 20% 18%;
+    --accent-foreground: 168 20% 95%;
+    --border: 171 18% 20%;
+    --input: 171 18% 20%;
+    --ring: 174 65% 42%;
+
+    --destructive: 350 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --status-ok: 158 60% 48%;
+    --status-ok-foreground: 158 80% 95%;
+    --status-attention: 38 92% 55%;
+    --status-attention-foreground: 35 90% 95%;
+    --status-overdue: 347 75% 58%;
+    --status-overdue-foreground: 347 90% 96%;
   }
 }
 
@@ -67,6 +80,13 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  letter-spacing: -0.01em;
+}
+
+/* Accessible focus ring style */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {

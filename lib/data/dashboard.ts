@@ -1,14 +1,11 @@
 import 'server-only';
-import { sql } from 'drizzle-orm';
 import { withUserTx } from '@/db/client';
+import { sql } from 'drizzle-orm';
 import type { CircleContext, CircleRole } from '@/lib/types/app';
 
-/**
- * lib/data/dashboard.ts
- * Owner: Member A
- * Who did what, backed by the who_did_what() SQL contract (SECURITY INVOKER, so RLS applies).
- * Windows are built by dashboard-window.ts (Asia/Kolkata day boundaries).
- */
+/* =========================================================================
+   1. Who Did What (Accountability)
+   ========================================================================= */
 
 export type MemberAccountability = {
   userId: string;
@@ -52,5 +49,110 @@ export async function whoDidWhat(
         overdue: Number(row.overdue_count),
       }))
       .sort((a, b) => a.fullName.localeCompare(b.fullName));
+  });
+}
+
+/* =========================================================================
+   2. Circle Status Board (10-second overview via circle_dashboard())
+   ========================================================================= */
+
+export interface DashboardOverdueTask {
+  id: string;
+  title: string;
+  category: string;
+  priority: string;
+  due_at: string;
+  assigned_to: string | null;
+  assignee_name?: string | null;
+}
+
+export interface DashboardNextAppointment {
+  id: string;
+  title: string;
+  doctor_name: string | null;
+  specialty: string | null;
+  location: string | null;
+  starts_at: string;
+  ends_at: string;
+  status: string;
+}
+
+export interface DashboardRefillDue {
+  id: string;
+  medication_name: string;
+  quantity_on_hand: number;
+  daily_usage: number;
+  next_refill_due: string | null;
+  status: 'ok' | 'due_soon' | 'overdue' | 'ordered';
+}
+
+export interface DashboardPendingMember {
+  user_id: string;
+  full_name: string;
+  pending_count: number;
+}
+
+export interface DashboardRecentActivity {
+  id: number;
+  action: string;
+  entity_type: string;
+  summary: string;
+  created_at: string;
+  actor_name?: string | null;
+}
+
+export interface DashboardLatestUpdate {
+  id: string;
+  body: string;
+  mood_tag: string | null;
+  author_name: string;
+  created_at: string;
+}
+
+export interface CircleDashboardData {
+  status: 'green' | 'amber' | 'red';
+  status_reason: string;
+  overdue_tasks: DashboardOverdueTask[];
+  next_appointments: DashboardNextAppointment[];
+  refills_due: DashboardRefillDue[];
+  pending_by_member: DashboardPendingMember[];
+  recent_activity: DashboardRecentActivity[];
+  latest_update: DashboardLatestUpdate | null;
+}
+
+/**
+ * Fetches the 10-second circle status board overview
+ * using the frozen circle_dashboard(p_circle) SQL contract.
+ */
+export async function getCircleDashboard(ctx: CircleContext): Promise<CircleDashboardData> {
+  return withUserTx(ctx.userId, async (tx) => {
+    const res = await tx.execute<{ dashboard: CircleDashboardData }>(sql`
+      SELECT circle_dashboard(${ctx.circleId}::uuid) AS dashboard
+    `);
+
+    const raw = res.rows[0]?.dashboard;
+    if (!raw) {
+      return {
+        status: 'green',
+        status_reason: 'All care items are on schedule.',
+        overdue_tasks: [],
+        next_appointments: [],
+        refills_due: [],
+        pending_by_member: [],
+        recent_activity: [],
+        latest_update: null,
+      };
+    }
+
+    return {
+      status: raw.status || 'green',
+      status_reason: raw.status_reason || 'All care items are on schedule.',
+      overdue_tasks: Array.isArray(raw.overdue_tasks) ? raw.overdue_tasks : [],
+      next_appointments: Array.isArray(raw.next_appointments) ? raw.next_appointments : [],
+      refills_due: Array.isArray(raw.refills_due) ? raw.refills_due : [],
+      pending_by_member: Array.isArray(raw.pending_by_member) ? raw.pending_by_member : [],
+      recent_activity: Array.isArray(raw.recent_activity) ? raw.recent_activity : [],
+      latest_update: raw.latest_update || null,
+    };
   });
 }

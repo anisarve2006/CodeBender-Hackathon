@@ -11,14 +11,9 @@ export const MAIN_NAV_ITEMS: NavItem[] = [
     iconName: 'LayoutDashboard',
   },
   {
-    title: 'Timeline',
-    href: (circleId: string) => `/c/${circleId}/timeline`,
-    iconName: 'Activity',
-  },
-  {
-    title: 'Tasks',
-    href: (circleId: string) => `/c/${circleId}/tasks`,
-    iconName: 'CheckSquare',
+    title: 'Appointments',
+    href: (circleId: string) => `/c/${circleId}/appointments`,
+    iconName: 'Calendar',
   },
   {
     title: 'Meds & Refills',
@@ -26,9 +21,29 @@ export const MAIN_NAV_ITEMS: NavItem[] = [
     iconName: 'Pill',
   },
   {
+    title: 'Vault & Records',
+    href: (circleId: string) => `/c/${circleId}/documents`,
+    iconName: 'FileText',
+  },
+  {
+    title: 'Tasks',
+    href: (circleId: string) => `/c/${circleId}/tasks`,
+    iconName: 'CheckSquare',
+  },
+  {
+    title: 'Care Timeline',
+    href: (circleId: string) => `/c/${circleId}/timeline`,
+    iconName: 'Activity',
+  },
+  {
     title: 'Family',
     href: (circleId: string) => `/c/${circleId}/family`,
     iconName: 'Users',
+  },
+  {
+    title: 'Care Companion',
+    href: (circleId: string) => `/c/${circleId}/care-mode`,
+    iconName: 'Heart',
   },
   {
     title: 'Settings',

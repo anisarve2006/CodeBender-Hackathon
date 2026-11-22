@@ -70,11 +70,11 @@ export function MedicineCard({
       </div>
 
       {/* Verbatim instructions guardrail block */}
-      <blockquote className="rounded-lg border-l-4 border-primary/70 bg-primary/5 p-3 text-xs text-foreground/90 space-y-1">
-        <p className="font-semibold text-primary text-[11px] uppercase tracking-wider">
+      <blockquote className="rounded-xl border-l-4 border-primary/70 bg-primary/5 p-3.5 text-xs text-foreground/90 space-y-1">
+        <p className="font-semibold text-primary text-xs">
           As written on prescription:
         </p>
-        <p className="italic leading-relaxed whitespace-pre-line">
+        <p className="italic leading-relaxed whitespace-pre-line text-[13px]">
           &ldquo;{medication.instructionsAsWritten}&rdquo;
         </p>
       </blockquote>
