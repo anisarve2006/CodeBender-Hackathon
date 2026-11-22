@@ -9,6 +9,16 @@ const serverSchema = z.object({
   UPSTASH_REDIS_REST_TOKEN: z.string().optional().default(''),
   CRON_SECRET: z.string().optional().default(''),
   BLOB_READ_WRITE_TOKEN: z.string().optional().default(''),
+  // Neon Object Storage / S3 configuration
+  NEON_STORAGE_ENDPOINT: z.string().optional().default(''),
+  NEON_STORAGE_ACCESS_KEY: z.string().optional().default(''),
+  NEON_STORAGE_SECRET_KEY: z.string().optional().default(''),
+  NEON_STORAGE_BUCKET: z.string().optional().default(''),
+  NEON_STORAGE_REGION: z.string().optional().default(''),
+  AWS_ENDPOINT_URL_S3: z.string().optional().default(''),
+  AWS_ACCESS_KEY_ID: z.string().optional().default(''),
+  AWS_SECRET_ACCESS_KEY: z.string().optional().default(''),
+  AWS_REGION: z.string().optional().default(''),
   SMTP_HOST: z.string().optional().default('smtp.gmail.com'),
   SMTP_PORT: z.string().optional().default('587'),
   SMTP_SECURE: z

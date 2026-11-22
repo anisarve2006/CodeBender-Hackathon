@@ -1,5 +1,12 @@
 import crypto from 'node:crypto';
 import { put, del, issueSignedToken, presignUrl } from '@vercel/blob';
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { fileTypeFromBuffer } from 'file-type';
 import sharp from 'sharp';
 import { uploadLimiter } from '@/lib/utils/rate-limit';
@@ -32,6 +39,33 @@ export interface SignedDocUrlResult {
   expiresAt: string;
   title: string;
   mimeType: string;
+}
+
+/**
+ * Returns an S3 client configured for Neon Object Storage if environment variables are set.
+ */
+export function getNeonS3Client(): { client: S3Client; bucket: string } | null {
+  const endpoint = process.env.NEON_STORAGE_ENDPOINT || process.env.AWS_ENDPOINT_URL_S3;
+  const accessKeyId = process.env.NEON_STORAGE_ACCESS_KEY || process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.NEON_STORAGE_SECRET_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+  const bucket = process.env.NEON_STORAGE_BUCKET || process.env.AWS_BUCKET_NAME || 'care-documents';
+  const region = process.env.NEON_STORAGE_REGION || process.env.AWS_REGION || 'us-east-2';
+
+  if (!endpoint || !accessKeyId || !secretAccessKey) {
+    return null;
+  }
+
+  const client = new S3Client({
+    region,
+    endpoint,
+    credentials: {
+      accessKeyId,
+      secretAccessKey,
+    },
+    forcePathStyle: true,
+  });
+
+  return { client, bucket };
 }
 
 /**
@@ -121,9 +155,30 @@ export async function uploadDocument(
   const blobTarget = `circle/${ctx.circleId}/${documentId}/${safeFilename}`;
 
   let blobPathname = '';
+  const s3Config = getNeonS3Client();
 
-  // 7. Upload to Vercel private Blob
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
+  // 7. Upload to Neon Object Storage or Vercel private Blob
+  if (s3Config) {
+    try {
+      await s3Config.client.send(
+        new PutObjectCommand({
+          Bucket: s3Config.bucket,
+          Key: blobTarget,
+          Body: processedBuffer,
+          ContentType: finalMime,
+          Metadata: {
+            circleId: ctx.circleId,
+            documentId,
+            checksumSha256,
+          },
+        }),
+      );
+      blobPathname = blobTarget;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown S3 storage error';
+      throw new Error(`Neon Object Storage upload failed: ${msg}`);
+    }
+  } else if (process.env.BLOB_READ_WRITE_TOKEN) {
     try {
       const blobResult = await put(blobTarget, processedBuffer, {
         access: 'private',
@@ -164,7 +219,18 @@ export async function uploadDocument(
     return docRecord;
   } catch (dbErr) {
     // If DB insert fails, delete uploaded blob immediately
-    if (process.env.BLOB_READ_WRITE_TOKEN && blobPathname) {
+    if (s3Config && blobPathname && !blobPathname.endsWith('_mock')) {
+      try {
+        await s3Config.client.send(
+          new DeleteObjectCommand({
+            Bucket: s3Config.bucket,
+            Key: blobPathname,
+          }),
+        );
+      } catch {
+        // Log deletion failure
+      }
+    } else if (process.env.BLOB_READ_WRITE_TOKEN && blobPathname) {
       try {
         await del(blobPathname, { token: process.env.BLOB_READ_WRITE_TOKEN });
       } catch {
@@ -222,7 +288,20 @@ export async function getDocumentUrl(
   const expiresAt = new Date(Date.now() + 60 * 1000); // 60s signed token
   let signedUrl: string;
 
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
+  const s3Config = getNeonS3Client();
+
+  if (s3Config && !doc.blob_pathname.endsWith('_mock') && !doc.blob_pathname.startsWith('seed/')) {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: s3Config.bucket,
+        Key: doc.blob_pathname,
+        ResponseContentType: doc.mime_type,
+      });
+      signedUrl = await getSignedUrl(s3Config.client, command, { expiresIn: 60 });
+    } catch {
+      signedUrl = `https://mock-blob.local/${doc.blob_pathname}?expires=${expiresAt.getTime()}`;
+    }
+  } else if (process.env.BLOB_READ_WRITE_TOKEN && !doc.blob_pathname.endsWith('_mock')) {
     const signedToken = await issueSignedToken({
       pathname: doc.blob_pathname,
       operations: ['get'],
