@@ -102,7 +102,7 @@ export async function getCircleMembersForGrantAction(input: { circleId: string }
       }>(sql`
         SELECT cm.user_id, COALESCE(u.full_name, 'Family Member') AS full_name, cm.role
         FROM circle_members cm
-        JOIN users u ON cm.user_id = u.id
+        JOIN member_profiles u ON cm.user_id = u.id
         WHERE cm.circle_id = ${input.circleId}
         ORDER BY u.full_name ASC
       `);

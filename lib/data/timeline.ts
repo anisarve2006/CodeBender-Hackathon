@@ -61,7 +61,7 @@ export async function getCircleTimelineFeed(
         ${kinds}::text[],
         ${limit + 1}::int
       ) t
-      LEFT JOIN users u ON t.actor_id = u.id
+      LEFT JOIN member_profiles u ON t.actor_id = u.id
     `);
 
     const rows = result.rows;

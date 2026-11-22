@@ -65,7 +65,7 @@ export async function listDocuments(
         can_view_document(d.id) AS can_view,
         (SELECT COUNT(*)::int FROM restricted_document_grants rdg WHERE rdg.document_id = d.id) AS grant_count
       FROM documents d
-      LEFT JOIN users u ON d.uploaded_by = u.id
+      LEFT JOIN member_profiles u ON d.uploaded_by = u.id
       WHERE d.circle_id = ${ctx.circleId}
         AND d.deleted_at IS NULL
     `;

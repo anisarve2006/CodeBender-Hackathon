@@ -33,9 +33,9 @@ export async function exportCircleDataZip(ctx: CircleContext): Promise<{ zipBuff
         c.name,
         c.created_at::text,
         cr.id AS recipient_id,
-        cr.name AS recipient_name,
-        cr.relationship,
-        cr.emergency_phone,
+        cr.full_name AS recipient_name,
+        COALESCE(cr.emergency_contact->>'relationship', '') AS relationship,
+        (cr.emergency_contact->>'phone') AS emergency_phone,
         cr.notes
       FROM care_circles c
       LEFT JOIN care_recipients cr ON cr.circle_id = c.id
@@ -68,7 +68,7 @@ export async function exportCircleDataZip(ctx: CircleContext): Promise<{ zipBuff
       status: string;
       outcome_notes: string | null;
     }>(sql`
-      SELECT id, title, doctor_name, specialty, location, starts_at::text, ends_at::text, status, outcome_notes
+      SELECT id, title, doctor_name, specialty, location, starts_at::text, ends_at::text, status, notes AS outcome_notes
       FROM appointments
       WHERE circle_id = ${ctx.circleId} AND deleted_at IS NULL
     `);
