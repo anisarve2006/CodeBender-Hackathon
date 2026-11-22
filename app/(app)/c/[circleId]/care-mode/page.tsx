@@ -31,10 +31,10 @@ export default async function CareModePage({ params }: CareModePageProps) {
       coordinator_phone: string | null;
     }>(sql`
       SELECT
-        cr.name AS recipient_name,
-        cr.emergency_phone,
-        COALESCE(u.full_name, 'Family Caregiver') AS coordinator_name,
-        u.phone AS coordinator_phone
+        cr.full_name AS recipient_name,
+        COALESCE(cr.emergency_contact->>'phone', u.phone) AS emergency_phone,
+        COALESCE(cr.emergency_contact->>'name', u.full_name, 'Family Caregiver') AS coordinator_name,
+        COALESCE(u.phone, cr.emergency_contact->>'phone') AS coordinator_phone
       FROM care_recipients cr
       LEFT JOIN circle_members cm ON cm.circle_id = cr.circle_id AND cm.role IN ('coordinator', 'owner')
       LEFT JOIN users u ON cm.user_id = u.id
