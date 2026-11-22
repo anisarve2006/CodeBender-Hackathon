@@ -49,9 +49,9 @@ function LoginForm() {
     <div className="w-full max-w-md space-y-4">
       <div className="text-center space-y-1">
         <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-xl mb-2">
-          FC
+          K
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">Family Care Hub</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Kinly</h1>
         <p className="text-sm text-muted-foreground">Sign in to coordinate care for your loved ones</p>
       </div>
 

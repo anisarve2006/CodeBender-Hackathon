@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Family Care Hub',
-  description: 'Shared care coordination, appointments, medications, and tasks for your loved ones.',
+  title: 'Kinly',
+  description: 'Kinly — Shared care coordination, appointments, medications, and tasks for your loved ones.',
 };
 
 export const viewport: Viewport = {

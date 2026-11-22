@@ -103,7 +103,7 @@ self.addEventListener('fetch', (event) => {
 // Web Push event listener
 self.addEventListener('push', (event) => {
   let data = {
-    title: 'Family Care Hub',
+    title: 'Kinly',
     body: 'You have a new care notification.',
     url: '/',
   };

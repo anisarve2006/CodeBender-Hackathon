@@ -51,7 +51,7 @@ export async function signupUser(input: SignupInput, ip: string, userAgent?: str
   if (existing.length > 0) {
     await sendEmail({
       to: email,
-      subject: 'Sign-in attempt on Family Care Hub',
+      subject: 'Sign-in attempt on Kinly',
       html: `<p>Someone attempted to create an account with this email. If this was you, please sign in or reset your password.</p>`,
     });
     return { redirectTo: '/verify-email' };
@@ -84,7 +84,7 @@ export async function signupUser(input: SignupInput, ip: string, userAgent?: str
   const verifyUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/verify-email/${rawVerifyToken}`;
   await sendEmail({
     to: email,
-    subject: 'Verify your Family Care Hub email',
+    subject: 'Verify your Kinly email',
     html: verificationEmailHtml(verifyUrl, newUser.fullName),
   });
 
@@ -187,7 +187,7 @@ export async function forgotPasswordUser(input: ForgotPasswordInput, ip: string)
     const resetUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/reset-password/${rawToken}`;
     await sendEmail({
       to: user.email,
-      subject: 'Reset your Family Care Hub password',
+      subject: 'Reset your Kinly password',
       html: resetPasswordEmailHtml(resetUrl, user.fullName),
     });
   }
@@ -240,7 +240,7 @@ export async function resetPasswordUser(input: ResetPasswordInput, ip: string, u
   if (users.length > 0) {
     await sendEmail({
       to: users[0].email,
-      subject: 'Your Family Care Hub password was changed',
+      subject: 'Your Kinly password was changed',
       html: passwordChangedEmailHtml(users[0].fullName),
     });
   }

@@ -21,7 +21,7 @@ const serverSchema = z.object({
     .default(false),
   SMTP_USER: z.string().optional().default(''),
   SMTP_PASS: z.string().optional().default(''),
-  EMAIL_FROM: z.string().default('Family Care Hub <onboarding@resend.dev>'),
+  EMAIL_FROM: z.string().default('Kinly <onboarding@resend.dev>'),
   AUTH_ENCRYPTION_KEY: z.string().optional().default(''),
   VAPID_PRIVATE_KEY: z.string().optional().default(''),
   VAPID_SUBJECT: z.string().default('mailto:team@example.com'),

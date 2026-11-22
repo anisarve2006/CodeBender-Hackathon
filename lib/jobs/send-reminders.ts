@@ -157,11 +157,11 @@ export async function processPendingRemindersBatch(limit = 500) {
         if (item.channel === 'email') {
           const html = `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
-              <h2 style="color: #0f172a; font-size: 18px; margin-top: 0;">Family Care Hub Notification</h2>
+              <h2 style="color: #0f172a; font-size: 18px; margin-top: 0;">Kinly Notification</h2>
               <p style="color: #334155; font-size: 15px; line-height: 1.5;">${bodyText}</p>
               <div style="margin: 24px 0;">
                 <a href="${actionUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 600; display: inline-block;">
-                  Open Family Care Hub
+                  Open Kinly
                 </a>
               </div>
               <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />

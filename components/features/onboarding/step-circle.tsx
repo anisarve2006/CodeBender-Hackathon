@@ -85,7 +85,7 @@ export function StepCircle({ onDone }: { onDone: (circle: CreatedCircle) => void
           />
           <span className="text-sm">
             I confirm that the care recipient, or their legal representative, agrees to their
-            information being stored in Family Care Hub for care coordination only. Data is stored
+            information being stored in Kinly for care coordination only. Data is stored
             in Singapore (DPDP Act 2023).
           </span>
         </label>

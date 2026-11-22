@@ -172,7 +172,7 @@ async function scheduleAppointmentReminders(
   const timeStr = formatDateTime(startsAt, 'Asia/Kolkata', 'p, d MMM');
   const payload = {
     title: 'Upcoming doctor appointment',
-    body: `Doctor appointment is scheduled for ${timeStr}. Open Family Care Hub to view details.`,
+    body: `Doctor appointment is scheduled for ${timeStr}. Open Kinly to view details.`,
   };
 
   for (const time of times) {

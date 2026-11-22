@@ -40,7 +40,7 @@ export type SendEmailOptions = {
 export async function sendEmail({ to, subject, html, text }: SendEmailOptions): Promise<void> {
   const fromAddress =
     serverEnv.SMTP_USER && !resend
-      ? `Family Care Hub <${serverEnv.SMTP_USER}>`
+      ? `Kinly <${serverEnv.SMTP_USER}>`
       : serverEnv.EMAIL_FROM;
 
   // 1. Send via Resend if API key is provided

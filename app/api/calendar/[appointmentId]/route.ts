@@ -91,7 +91,7 @@ export async function GET(
     const icsLines = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//Family Care Hub//Doctor Appointments//EN',
+      'PRODID:-//Kinly//Doctor Appointments//EN',
       'CALSCALE:GREGORIAN',
       'METHOD:PUBLISH',
       'BEGIN:VEVENT',

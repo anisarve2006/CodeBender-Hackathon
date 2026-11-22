@@ -40,7 +40,7 @@ export default async function MedsPage({
         <Info className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400 mt-0.5" />
         <p>
           <strong>Medical Notice:</strong> Instructions are displayed verbatim as written on
-          prescriptions. Family Care Hub organises information only and does not provide medical
+          prescriptions. Kinly organises information only and does not provide medical
           advice, dosage calculations, or clinical recommendations. Always consult a licensed doctor.
         </p>
       </div>

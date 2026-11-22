@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
  * The message is neutral and contains no medical details.
  */
 export function InviteShareButtons({ link, email }: { link: string; email: string }) {
-  const message = `I've invited you to help coordinate care on Family Care Hub. Join here: ${link}`;
+  const message = `I've invited you to help coordinate care on Kinly. Join here: ${link}`;
   const whatsappHref = `https://wa.me/?text=${encodeURIComponent(message)}`;
 
   async function copyLink() {

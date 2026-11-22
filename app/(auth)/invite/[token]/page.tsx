@@ -22,7 +22,7 @@ export default async function InviteAcceptPage({
         <CardHeader>
           <CardTitle>You have been invited</CardTitle>
           <CardDescription>
-            Someone invited you to help coordinate care on Family Care Hub. Create an account or
+            Someone invited you to help coordinate care on Kinly. Create an account or
             sign in with the email address this invitation was sent to. You will then return here
             to join.
           </CardDescription>
@@ -85,13 +85,13 @@ export default async function InviteAcceptPage({
       <div className="w-full max-w-md space-y-4">
         <div className="text-center space-y-1">
           <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-xl mb-2">
-            FC
+            K
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Family Care Hub</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Kinly</h1>
         </div>
         <Card>{body}</Card>
         <p className="text-center text-xs text-muted-foreground">
-          Family Care Hub organises information only and does not provide medical advice. Always
+          Kinly organises information only and does not provide medical advice. Always
           consult a doctor.
         </p>
       </div>

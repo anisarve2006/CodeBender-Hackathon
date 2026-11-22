@@ -39,8 +39,8 @@ export async function nudgeTask(ctx: CircleContext, taskId: string): Promise<voi
 
   const remindAt = new Date();
   const payload = {
-    title: 'Family Care Hub',
-    body: 'A care task is waiting for you. Open Family Care Hub to see it.',
+    title: 'Kinly',
+    body: 'A care task is waiting for you. Open Kinly to see it.',
   };
 
   try {

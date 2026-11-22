@@ -95,7 +95,7 @@ export async function sendDailyDigests() {
 
     const emailHtml = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
-        <h2 style="color: #0f172a; font-size: 20px; margin-top: 0;">Family Care Hub Evening Digest</h2>
+        <h2 style="color: #0f172a; font-size: 20px; margin-top: 0;">Kinly Evening Digest</h2>
         <p style="color: #475569; font-size: 14px;">Hello ${user.full_name}, here is your daily summary of active care coordination items across your family circles:</p>
         
         <div style="margin: 20px 0;">
@@ -104,7 +104,7 @@ export async function sendDailyDigests() {
 
         <div style="margin: 24px 0; text-align: center;">
           <a href="${clientEnv.NEXT_PUBLIC_SITE_URL}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 600; display: inline-block;">
-            Sign in to Family Care Hub
+            Sign in to Kinly
           </a>
         </div>
 
@@ -119,7 +119,7 @@ export async function sendDailyDigests() {
     try {
       await sendEmail({
         to: user.email,
-        subject: 'Your Daily Family Care Hub Digest',
+        subject: 'Your Daily Kinly Digest',
         html: emailHtml,
         text: `You have active items in ${activeCircles.length} care circle(s). Sign in to view details: ${clientEnv.NEXT_PUBLIC_SITE_URL}`,
       });

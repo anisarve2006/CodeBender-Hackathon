@@ -142,9 +142,9 @@ export const resendInviteAction = createAction(
 
     await sendEmail({
       to: existing.email,
-      subject: `${inviterName} invited you to help coordinate care on Family Care Hub`,
-      text: `${inviterName} invited you to help coordinate care on Family Care Hub.\n\nOpen this link to join (it expires in 72 hours):\n${link}\n\nFamily Care Hub organises information only and does not provide medical advice. Always consult a doctor.`,
-      html: `<p>${escapeHtml(inviterName)} invited you to help coordinate care on Family Care Hub.</p><p><a href="${escapeHtml(link)}">Open the invitation</a> (it expires in 72 hours).</p><p style="color:#666;font-size:12px">Family Care Hub organises information only and does not provide medical advice. Always consult a doctor.</p>`,
+      subject: `${inviterName} invited you to help coordinate care on Kinly`,
+      text: `${inviterName} invited you to help coordinate care on Kinly.\n\nOpen this link to join (it expires in 72 hours):\n${link}\n\nKinly organises information only and does not provide medical advice. Always consult a doctor.`,
+      html: `<p>${escapeHtml(inviterName)} invited you to help coordinate care on Kinly.</p><p><a href="${escapeHtml(link)}">Open the invitation</a> (it expires in 72 hours).</p><p style="color:#666;font-size:12px">Kinly organises information only and does not provide medical advice. Always consult a doctor.</p>`,
     });
 
     await bumpCircleVersion(ctx.circleId);

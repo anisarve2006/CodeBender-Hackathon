@@ -75,7 +75,7 @@ export default async function CircleLayout({
 
       {/* Persistent Medical Disclaimer Footer */}
       <footer className="border-t bg-background/80 py-3 text-center text-xs text-muted-foreground px-4">
-        Family Care Hub organises information only and does not provide medical advice. Always consult a doctor.
+        Kinly organises information only and does not provide medical advice. Always consult a doctor.
       </footer>
     </div>
   );
