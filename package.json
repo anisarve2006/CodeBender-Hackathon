@@ -20,7 +20,7 @@
     "db:custom": "drizzle-kit generate --custom --name",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx db/seed/index.ts",
+    "db:seed": "dotenv run -f .env.local -- tsx --conditions react-server db/seed/index.ts",
     "db:reset": "tsx scripts/db-reset.ts",
     "prepare": "husky"
   },

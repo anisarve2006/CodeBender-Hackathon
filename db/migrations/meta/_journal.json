@@ -43,6 +43,13 @@
       "when": 1795266400000,
       "tag": "0005_member_b_enhancements",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795266450000,
+      "tag": "0006_notifications_and_prefs",
+      "breakpoints": true
     }
   ]
 }
