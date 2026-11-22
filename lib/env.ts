@@ -36,12 +36,18 @@ const isBuildOrTest =
   process.env.npm_lifecycle_event === 'build' ||
   process.env.NEXT_PHASE === 'phase-production-build' ||
   process.env.NODE_ENV === 'test' ||
+  process.env.NODE_ENV === 'development' ||
   !!process.env.VITEST;
 
 function parseServerEnv() {
   const result = serverSchema.safeParse(process.env);
   if (!result.success) {
     if (isBuildOrTest) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(
+          '⚠️ Missing DATABASE_URL in environment; falling back to mock dev configuration. Add your Neon credentials to .env.local for live data.',
+        );
+      }
       return serverSchema.parse({
         DATABASE_URL:
           process.env.DATABASE_URL ||
