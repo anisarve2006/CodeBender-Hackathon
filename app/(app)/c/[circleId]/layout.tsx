@@ -56,7 +56,7 @@ export default async function CircleLayout({
       <div className="flex flex-1">
         {/* Desktop Sidebar */}
         <aside className="hidden w-64 border-r bg-background/50 md:block p-4 space-y-4">
-          <CircleNav circleId={circleId} items={MAIN_NAV_ITEMS} />
+          <CircleNav circleId={circleId} />
         </aside>
 
         {/* Main Content View */}
@@ -67,7 +67,7 @@ export default async function CircleLayout({
 
       {/* Mobile Bottom Navigation Bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 flex h-16 items-center justify-around border-t bg-background/95 backdrop-blur md:hidden">
-        <CircleNav circleId={circleId} items={MAIN_NAV_ITEMS} mobile />
+        <CircleNav circleId={circleId} mobile />
       </nav>
 
       {/* Floating Action Quick-Add Button */}

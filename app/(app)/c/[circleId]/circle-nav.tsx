@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import type { NavItem } from '@/lib/nav';
+import { MAIN_NAV_ITEMS, type NavItem } from '@/lib/nav';
 import {
   LayoutDashboard,
   Activity,
@@ -31,11 +31,11 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 interface CircleNavProps {
   circleId: string;
-  items: NavItem[];
+  items?: NavItem[];
   mobile?: boolean;
 }
 
-export function CircleNav({ circleId, items, mobile = false }: CircleNavProps) {
+export function CircleNav({ circleId, items = MAIN_NAV_ITEMS, mobile = false }: CircleNavProps) {
   const pathname = usePathname();
 
   if (mobile) {
