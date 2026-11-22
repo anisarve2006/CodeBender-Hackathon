@@ -1,5 +1,6 @@
 import * as React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { Heart } from 'lucide-react';
 import { requireCircleRole } from '@/lib/data/circle-context';
@@ -35,9 +36,14 @@ export default async function CircleLayout({
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:px-6">
         <div className="flex items-center gap-3">
           <Link href={`/c/${circleId}`} className="flex items-center gap-2.5 font-bold tracking-tight text-lg text-foreground hover:opacity-90 transition-opacity">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-semibold shadow-xs">
-              <Heart className="h-5 w-5 fill-current" />
-            </span>
+            <Image
+              src="/logo.png"
+              alt="Kinly Logo"
+              width={36}
+              height={36}
+              className="h-9 w-9 rounded-xl object-contain shadow-xs border border-border/40"
+              priority
+            />
             <div className="flex flex-col">
               <span className="leading-tight text-base sm:text-lg">{ctx.circleName}</span>
               <span className="text-[11px] font-medium text-muted-foreground leading-none">
