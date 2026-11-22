@@ -6,6 +6,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
+// Suppress React 19 false-positive warning for next-themes inline theme script
+if (process.env.NODE_ENV === 'development') {
+  const originalConsoleError = console.error;
+  console.error = (...args: unknown[]) => {
+    if (
+      typeof args[0] === 'string' &&
+      args[0].includes('Encountered a script tag while rendering React component')
+    ) {
+      return;
+    }
+    originalConsoleError.apply(console, args);
+  };
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = React.useState(
     () =>

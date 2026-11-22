@@ -84,62 +84,67 @@ export const validateSession = cache(async (): Promise<ValidatedSession | null> 
   }
 
   // 2. Fetch from Postgres
-  const result = await adminDb
-    .select({
-      session: schema.sessions,
-      user: schema.users,
-    })
-    .from(schema.sessions)
-    .innerJoin(schema.users, eq(schema.sessions.userId, schema.users.id))
-    .where(eq(schema.sessions.id, sessionId))
-    .limit(1);
+  try {
+    const result = await adminDb
+      .select({
+        session: schema.sessions,
+        user: schema.users,
+      })
+      .from(schema.sessions)
+      .innerJoin(schema.users, eq(schema.sessions.userId, schema.users.id))
+      .where(eq(schema.sessions.id, sessionId))
+      .limit(1);
 
-  if (result.length === 0) {
-    return null;
-  }
-
-  const { session, user } = result[0];
-
-  // 3. Reject expired sessions
-  const now = new Date();
-  if (new Date(session.expiresAt) <= now) {
-    await invalidateSession(sessionId);
-    return null;
-  }
-
-  // 4. Extend session if less than 15 days remain
-  const remainingDays =
-    (new Date(session.expiresAt).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-  if (remainingDays < SESSION_EXTEND_THRESHOLD_DAYS) {
-    const newExpiresAt = new Date(now.getTime() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
-    await adminDb
-      .update(schema.sessions)
-      .set({ expiresAt: newExpiresAt, lastSeenAt: now })
-      .where(eq(schema.sessions.id, sessionId));
-    session.expiresAt = newExpiresAt;
-  }
-
-  const validated: ValidatedSession = {
-    user: {
-      id: user.id,
-      email: user.email,
-      fullName: user.fullName,
-      timezone: user.timezone,
-      emailVerified: !!user.emailVerifiedAt,
-    },
-    session,
-  };
-
-  // Cache in Redis for 60s
-  if (redis) {
-    try {
-      await redis.setex(cacheKey, 60, validated);
-    } catch {
-      // ignore Redis cache failure
+    if (result.length === 0) {
+      return null;
     }
-  }
 
-  return validated;
+    const { session, user } = result[0];
+
+    // 3. Reject expired sessions
+    const now = new Date();
+    if (new Date(session.expiresAt) <= now) {
+      await invalidateSession(sessionId);
+      return null;
+    }
+
+    // 4. Extend session if less than 15 days remain
+    const remainingDays =
+      (new Date(session.expiresAt).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    if (remainingDays < SESSION_EXTEND_THRESHOLD_DAYS) {
+      const newExpiresAt = new Date(now.getTime() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
+      await adminDb
+        .update(schema.sessions)
+        .set({ expiresAt: newExpiresAt, lastSeenAt: now })
+        .where(eq(schema.sessions.id, sessionId));
+      session.expiresAt = newExpiresAt;
+    }
+
+    const validated: ValidatedSession = {
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        timezone: user.timezone,
+        emailVerified: !!user.emailVerifiedAt,
+      },
+      session,
+    };
+
+    // Cache in Redis for 60s
+    if (redis) {
+      try {
+        await redis.setex(cacheKey, 60, validated);
+      } catch {
+        // ignore Redis cache failure
+      }
+    }
+
+    return validated;
+  } catch (err) {
+    console.warn('Database session validation failed (falling back to null session):', err);
+    return null;
+  }
 });
 
 export async function invalidateSession(sessionId: string): Promise<void> {
